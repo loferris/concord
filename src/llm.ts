@@ -102,10 +102,10 @@ async function realChatJson(req: ChatJsonRequest, schema: ZodType<unknown>): Pro
     model: req.model,
     prompt_tokens: u?.prompt_tokens ?? 0,
     completion_tokens: u?.completion_tokens ?? 0,
-    cached_tokens: u?.prompt_tokens_details?.cached_tokens ?? 0,
+    cached_tokens: u?.prompt_tokens_details ? (u.prompt_tokens_details.cached_tokens ?? 0) : null,
   };
   console.log(
-    `[llm] ${req.model} ${req.schemaName} finish=${finishReason} prompt=${usage.prompt_tokens} cached=${usage.cached_tokens} ` +
+    `[llm] ${req.model} ${req.schemaName} finish=${finishReason} prompt=${usage.prompt_tokens} cached=${usage.cached_tokens ?? 'n/a'} ` +
       `completion=${usage.completion_tokens} rl_remaining_req=${headers?.get('x-ratelimit-remaining-requests') ?? '?'} ` +
       `rl_remaining_tok=${headers?.get('x-ratelimit-remaining-tokens') ?? '?'}`,
   );

@@ -28,8 +28,11 @@ async function start(chapterPath: string, runIdArg?: string) {
   console.log('\n[cli] result:');
   console.log(JSON.stringify(result, null, 2));
   const u = result.usage;
-  const rate = u.prompt_tokens ? ((100 * u.cached_tokens) / u.prompt_tokens).toFixed(1) : '0.0';
-  console.log(`\n[cli] tokens: prompt=${u.prompt_tokens} cached=${u.cached_tokens} (${rate}%) completion=${u.completion_tokens} model=${u.model}`);
+  const cached =
+    u.cached_tokens === null
+      ? 'n/a (provider did not report prompt_tokens_details)'
+      : `${u.cached_tokens} (${u.prompt_tokens ? ((100 * u.cached_tokens) / u.prompt_tokens).toFixed(1) : '0.0'}%)`;
+  console.log(`\n[cli] tokens: prompt=${u.prompt_tokens} cached=${cached} completion=${u.completion_tokens} model=${u.model}`);
 
   const json = JSON.parse(await readFile(result.translationPath, 'utf8')) as { paragraphs: { id: string; text: string }[] };
   console.log(`\n[cli] first paragraphs of ${result.englishPath}:`);

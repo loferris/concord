@@ -8,6 +8,7 @@ English consistently. Temporal orchestrates the agents; models run on Crusoe Man
 ```bash
 bun install
 cp .env.example .env            # put CRUSOE_API_KEY in .env (single quotes). Unset -> deterministic fake model.
+# data/zh/01..03.txt is the source; ref/english-reference.md is the answer key and is read only by `eval`.
 bun run temporal                # Temporal dev server (separate terminal)
 bun run worker                  # one process, three task queues: workflows, fast, smart
 bun run cli start data/zh/01.txt
@@ -28,6 +29,12 @@ readable `translation.en.txt` and `translate.usage.json`. Workflow history only 
   - `src/text.ts`: paragraph splitter (`p001…`); `translateChapter` activity verifies the ID set round-trips.
   - `ChapterWorkflow` = translate only (lint/review/revise come in milestone 3). Heartbeats every 5s,
     `heartbeatTimeout 15s`, retries up to 6 attempts.
+  - Real run on `data/zh/01.txt` (The Grey List, ch. 1): 18/18 paragraph IDs round-tripped, zero leftover
+    CJK, 887 prompt / ~930 completion tokens. Without a glossary the translator already drifts
+    (沈澈 → "Shen Jie", 沈哥 → "Shen Ge"), which is the problem milestone 2 fixes.
+  - Caching note: Crusoe returns `prompt_tokens_details: null` for Lightning and `cached_tokens: 0` for
+    Super on identical ~700-token prompts repeated back to back. We record `null` as "not reported" rather
+    than 0% and keep logging it per call.
 - [ ] Milestone 2: extract + debate + frozen glossary.
 - [ ] Milestone 3: all chapters in parallel + checks report.
 - [ ] Milestone 4: eval (baseline vs full system), kill -9 / resume script.
