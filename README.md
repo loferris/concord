@@ -262,3 +262,117 @@ and is read by the eval only (a test enforces it). See `docs/prompts.md` for eve
 - [ ] Milestone 4: kill -9 / resume script; eval against `ref/english-reference.md`.
 - [ ] Milestone 3: all chapters in parallel + checks report.
 - [ ] Milestone 4: eval (baseline vs full system), kill -9 / resume script.
+
+## FAQ
+
+<details>
+<summary><b>Isn't this just an auto-glossary? Several tools build those.</b></summary>
+
+They do: novel-translation tools extract names and terms automatically, and DeepL can generate glossaries from past translations. Those are one model's pass over the text. Concord decides each term by debate with a written rationale, attaches nicknames to the right character, keeps same-sound words like 师傅 (driver) and 师父 (mentor) apart, escalates hard cases to a human, versions every decision, and measures whether each chapter followed the glossary. Our baseline is one prompt per chapter with no glossary, so part of the gain is simply having one; comparing against an auto-glossary tool is the next evaluation.
+
+</details>
+
+<details>
+<summary><b>Why web novels?</b></summary>
+
+Serialization turns translation into an online problem. Chapters arrive one at a time for years, so each term is decided before the story explains it, must hold for thousands of chapters, and sometimes has to be reopened. That requires versioned decisions, knowing which chapters a changed term touched, and orchestration that survives months of runtime. The glossary is the only memory that spans a book far longer than any context window.
+
+</details>
+
+<details>
+<summary><b>Who else needs this?</b></summary>
+
+Anywhere many writers must use the same words for a long time and a changed word is expensive: live-service game localization, patents, drug labeling and clinical documents, contract families, subtitles across seasons. The same loop works within one language: writers' rooms, coding-agent teams sharing a codebase's vocabulary, enterprise metric definitions.
+
+</details>
+
+<details>
+<summary><b>Why Chinese?</b></summary>
+
+It's a standard benchmark language for document-level translation, has no word boundaries (terms must be discovered), and is dense with aliases, address forms and same-sound characters.
+
+</details>
+
+<details>
+<summary><b>Synthetic data?</b></summary>
+
+The Grey List is three chapters written for this test, with planted traps (师傅/师父, a nickname, a refrain, a fact ledger) and a reference translation that only the evaluation reads. No rights issues.
+
+</details>
+
+<details>
+<summary><b>What does "100% glossary adherence" mean? Isn't that graded by your own checks?</b></summary>
+
+It measures whether the translation used the decided rendering for each term occurrence. Counting is text-level and chapter-scoped, and every counted hit can be printed with its line (`cli eval --hits`). The full system reaches 100% before the review loop runs, so the glossary does the work, not the reviewer. The baseline's 82% partly reflects consistent but different choices (for example, 11 of its 20 hits are "Director Zhou", which the agents banned in favor of "Zhou Zong"). Independent checks: agreement with a reference glossary, and a fact ledger that is 9 of 9 for both baseline and full system.
+
+</details>
+
+<details>
+<summary><b>Does the full system ever drift?</b></summary>
+
+By known variants, no: zero banned variants, and the chosen rendering appears in every chapter. Against the reference's alternates, chapter 2 uses "mentor" alongside "Shi Fu" for 师父, so a strict drift count gives 1. The baseline gives that same person three titles ("mentor", "Master", "Shifu"). Measuring variants nobody predicted needs span alignment between source and translation, which is planned.
+
+</details>
+
+<details>
+<summary><b>What if the glossary is wrong?</b></summary>
+
+Agreement isn't correctness: in one run all three proposers agreed on a wrong time. So code checks the glossary itself (collisions, nested terms, no Chinese characters or markup in renderings), the terminologist can mark an entry needs-human, the reviewer can dispute a term, and a human resolution (`cli resolve`) writes a new version that records what it answered. In the incremental run, the proposers gave 师傅 the mentor's rendering; code refused to freeze it, and a human resolved it to "driver" in v4.
+
+</details>
+
+<details>
+<summary><b>Did later chapters cost less?</b></summary>
+
+Chapter 2 did (22 model calls against 35 for chapter 1). Chapter 3 didn't (27 calls): it introduced the most new material, alias grouping cost grows with glossary size, and rate-limit retries bill tokens. Batching the grouper calls is the fix.
+
+</details>
+
+<details>
+<summary><b>Does it scale to a 500-chapter novel?</b></summary>
+
+Not unchanged. Whole-book extraction in one call works for three chapters but hits output limits and then context limits at book scale. Incremental mode is the start of the answer; next are windowed extraction, a termbase instead of JSON files, a cached core glossary plus per-chapter terms in the prompt, and re-translating only the chapters a changed term touches. Temporal already handles the fan-out.
+
+</details>
+
+<details>
+<summary><b>Why Temporal?</b></summary>
+
+Durability. Kill the worker mid-run and nothing finished is redone; every step is in the workflow history (`scripts/kill-resume.sh`). docs/temporal.md covers the failure modes measured today, such as rate-limit storms pushing retries onto a fallback model.
+
+</details>
+
+<details>
+<summary><b>Why Crusoe?</b></summary>
+
+Every call carries the same long glossary prefix, so prefix caching and cheap cached input matter, and one serving stack per model keeps the evaluation consistent. The API is OpenAI-compatible, so switching providers is a configuration change.
+
+</details>
+
+<details>
+<summary><b>Why three model families?</b></summary>
+
+The writer never grades itself, and the reviewer reads Chinese natively. Nemotron makes every glossary decision; DeepSeek translates and tags; GLM reviews.
+
+</details>
+
+<details>
+<summary><b>Aren't three copies of one model just agreeing with themselves?</b></summary>
+
+Each proposer has its own stance and its own seed. With one shared seed they never disagreed, so that was changed; the debates that remain are substantive. Proposers from different model families are a planned next step.
+
+</details>
+
+<details>
+<summary><b>What does the reviewer add?</b></summary>
+
+Quality beyond terminology: in the canonical run it sent chapter 3 back once (1 major and 3 minor issues) and approved the revision. It also raised a correct dispute about the glossary itself (a banned "Guanlan Data" where the source says 观澜数据), which a human resolved.
+
+</details>
+
+<details>
+<summary><b>What was built today?</b></summary>
+
+Everything in this repository, from 10:45 on October 17, 2026, with Claude Code as a coding agent. The commit history shows the order. fableforge was an inspiration only; no code was reused.
+
+</details>
