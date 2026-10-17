@@ -190,10 +190,11 @@ body.rec .stage{width:100vw;height:100vh;max-width:none;aspect-ratio:auto;border
   <section class="scene" id="sc-hook" aria-label="The problem">
     <p class="kicker">The problem</p>
     <div class="pages">
-      <article class="pg rv hid" data-k="p0"><span class="ch">Ch 2 · <span class="zh">师父</span></span><p>Gu Heng, his <b class="nm ok">mentor</b>, trained him for two months.</p></article>
-      <article class="pg rv hid" data-k="p1"><span class="ch">Ch 3 · <span class="zh">师傅</span></span><p>To the taxi driver: “Pudong Airport, please, <b class="nm bad" data-k="bad">Master</b>.”</p></article>
+      <article class="pg rv hid" data-k="p0"><span class="ch">Ch 2 · <span class="zh">师父</span></span><p>“You know how your <b class="nm ok">mentor</b> left Guanlan.”</p></article>
+      <article class="pg rv hid" data-k="p1"><span class="ch">Ch 3 · <span class="zh">师父</span></span><p>Chapter 3: <b class="nm bad flag">Master</b></p></article>
+      <article class="pg rv hid" data-k="p2"><span class="ch">Ch 3 · <span class="zh">师父</span></span><p>“<b class="nm bad" data-k="bad">Shifu</b>.” Shen Che took the suitcase.</p></article>
     </div>
-    <p class="caption rv hid" data-k="cap">Same sound, different word. Without a glossary, <em>the taxi driver becomes “Master.”</em></p>
+    <p class="caption rv hid" data-k="cap">Same person, same word in Chinese. <em>Three English titles.</em></p>
   </section>
 
   <section class="scene" id="sc-brain" aria-label="The shared brain">
@@ -484,7 +485,7 @@ body.rec .stage{width:100vw;height:100vh;max-width:none;aspect-ratio:auto;border
   const cap = (key, fallback) => (window.CAPTURES || {})[key] ? ['sc-term', 0, key] : ['sc-slate', 0, fallback];
   const CUE_SCENES = {
     open:     [['sc-title', 0], ['sc-hook', 1.6]],
-    baseline: [cap('baseline', 'Baseline output: the taxi driver (师傅) called “master”')],
+    baseline: [cap('baseline', 'Baseline output: 师父 as “mentor”, “Master”, “Shifu”')],
     glossary: [cap('glossary', 'Glossary v3: human resolutions marked ✎')],
     growtable: [cap('incremental', 'Incremental run: the glossary growth table')],
     brain:    [['sc-brain', 0]],

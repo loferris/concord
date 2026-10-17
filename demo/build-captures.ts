@@ -14,7 +14,7 @@ const capDir = path.resolve(process.argv[2] ?? path.join(dir, '..', 'demo-captur
 
 interface Spec { file: string; label: string; cmd: string; highlight?: string; rows?: number; reveal?: boolean; images?: string }
 const SPECS: Record<string, Spec> = {
-  baseline: { file: 'baseline.txt', label: 'Baseline: one prompt per chapter, no glossary', cmd: 'grep -n -i -C2 "master\\|mentor" <baseline chapter 3>', highlight: 'master|mentor' },
+  baseline: { file: 'baseline.txt', label: 'Baseline: one prompt per chapter, no glossary', cmd: 'grep -n -i "mentor\\|master\\|shifu" <baseline ch2, ch3>', highlight: 'mentor|master|shifu' },
   glossary: { file: 'glossary.txt', label: 'Glossary: human decisions marked ✎', cmd: 'cli glossary', highlight: '✎|driver|Review Team|Guanlan Data' },
   incremental: { file: 'incremental.txt', label: 'The glossary grows: one version per chapter', cmd: 'cli growth', highlight: '阿澈|师傅|alias|needs_human' },
   kill: { file: 'kill-resume.txt', label: 'kill -9 mid-run, then resume', cmd: 'scripts/kill-resume.sh', highlight: 'kill|Heartbeat timeout|attempt 2|restart|resum|completed', rows: 20, reveal: true, images: '^temporal-[23].*\\.png$' },
