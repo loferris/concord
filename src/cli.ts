@@ -5,6 +5,9 @@ import { loadEnv } from './env';
 import { TASK_QUEUES, RUN_DATA_DIR, PRICING } from './config';
 import type { BookWorkflowResult, ChapterWorkflowResult, TranslationPhaseResult } from './workflows';
 import type { CheckSummary } from './checks';
+import { nestedTermViolations, renderingCollisions } from './checks';
+import { normRendering } from './normalize';
+import { writeJsonAtomic } from './activities/io';
 import type { Glossary } from './schemas';
 import type { EntityRecord } from './activities/group';
 import type { AddressForm } from './activities/tag';
@@ -68,7 +71,9 @@ async function translateBook(glossaryRunId: string, chapterPaths: string[], deta
   const { connection, client } = await connect();
   console.log(`[cli] runId=${runId} glossaryRunId=${glossaryRunId} chapters=${chapterPaths.join(', ')}`);
   const t0 = Date.now();
-  const handle = await client.workflow.start('TranslateBookWorkflow', { taskQueue: TASK_QUEUES.workflows, workflowId: `translate-${runId}`, args: [{ runId, glossaryRunId, chapterPaths }] });
+  const glossaryVersion = await latestGlossaryVersion(glossaryRunId);
+  console.log(`[cli] using glossary.v${glossaryVersion}.json`);
+  const handle = await client.workflow.start('TranslateBookWorkflow', { taskQueue: TASK_QUEUES.workflows, workflowId: `translate-${runId}`, args: [{ runId, glossaryRunId, chapterPaths, glossaryVersion }] });
   if (detach) {
     console.log(`[cli] started workflowId=translate-${runId} (detached). Wait with: cli wait ${runId} ${glossaryRunId}`);
     await connection.close();
@@ -160,6 +165,79 @@ async function waitRun(runId: string, glossaryRunId?: string) {
   await evalRun(runId, glossaryRunId ?? result.glossaryRunId);
 }
 
+async function latestGlossaryVersion(runId: string): Promise<number> {
+  const files = await readdir(`${RUN_DATA_DIR}/${runId}/glossary`);
+  return Math.max(...files.map((f) => Number(f.match(/^glossary\.v(\d+)\.json$/)?.[1] ?? 0)));
+}
+
+/** Find a reviewer term dispute about this source in any translation run that used this glossary run. */
+async function findDispute(glossaryRunId: string, source: string): Promise<string | null> {
+  const runs = (await readdir(RUN_DATA_DIR)).sort().reverse();
+  for (const run of runs) {
+    let chapters: string[] = [];
+    try {
+      chapters = await readdir(`${RUN_DATA_DIR}/${run}/chapters`);
+    } catch {
+      continue;
+    }
+    for (const ch of chapters) {
+      let files: string[] = [];
+      try {
+        files = (await readdir(`${RUN_DATA_DIR}/${run}/chapters/${ch}`)).filter((f) => /^review\.r\d+\.json$/.test(f));
+      } catch {
+        continue;
+      }
+      for (const f of files) {
+        const r = JSON.parse(await readFile(`${RUN_DATA_DIR}/${run}/chapters/${ch}/${f}`, 'utf8')) as { term_disputes?: { source: string; current_rendering: string; proposed: string; reason: string }[] };
+        const t = JSON.parse(await readFile(`${RUN_DATA_DIR}/${run}/chapters/${ch}/translation.json`, 'utf8').catch(() => '{}')) as { glossary?: string | null };
+        if (!t.glossary?.includes(glossaryRunId)) continue;
+        for (const d of r.term_disputes ?? []) {
+          if (d.source.includes(source) || source.includes(d.source)) return `reviewer dispute in run ${run} ch ${ch} ${f}: ${d.source} ${d.current_rendering} → ${d.proposed}: ${d.reason.slice(0, 200)}`;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Human resolution: set one entry's rendering (and optionally unban a variant), decided_by "human",
+ * needs_human false, resolved_from citing the flag or dispute it answers; write glossary.v{N+1}.json
+ * (or amend the latest with --same-version) and re-run the nested-term and collision checks.
+ */
+async function resolve(runId: string, source: string, rendering: string, opts: { unban?: string; sameVersion?: boolean; note?: string }) {
+  const latest = await latestGlossaryVersion(runId);
+  const dir = `${RUN_DATA_DIR}/${runId}/glossary`;
+  const g = JSON.parse(await readFile(`${dir}/glossary.v${latest}.json`, 'utf8')) as Glossary;
+  const e = g.entries.find((x) => x.source === source);
+  if (!e) throw new Error(`no glossary entry for ${source} in v${latest}`);
+  const before = { rendering: e.rendering, banned: [...e.banned], needs_human: e.needs_human, reason: e.needs_human_reason };
+  const dispute = await findDispute(runId, source);
+  const answers = before.needs_human ? `needs_human flag on ${source}: ${before.reason}` : dispute ?? (opts.note ? `operator note: ${opts.note}` : 'no open flag or dispute; editorial decision');
+  e.rendering = rendering.trim();
+  e.decided_by = 'human';
+  e.needs_human = false;
+  e.needs_human_reason = null;
+  e.resolved_from = answers;
+  if (opts.unban) {
+    const k = opts.unban.trim().toLowerCase();
+    e.banned = e.banned.filter((b) => b.trim().toLowerCase() !== k);
+  }
+  // The chosen rendering can never be in the banned list.
+  e.banned = e.banned.filter((b) => b.trim().toLowerCase() !== e.rendering.toLowerCase());
+  e.code_notes.push(`human: "${before.rendering}" → "${e.rendering}"${opts.unban ? `; unbanned "${opts.unban}"` : ''}${opts.note ? `; ${opts.note}` : ''}`);
+  const version = opts.sameVersion ? latest : latest + 1;
+  const out: Glossary = { ...g, version, entries: g.entries };
+  await writeJsonAtomic(`${dir}/glossary.v${version}.json`, out);
+  console.log(`[resolve] ${source}: "${before.rendering}" → "${e.rendering}"${opts.unban ? ` (unbanned "${opts.unban}")` : ''} → glossary.v${version}.json`);
+  console.log(`  resolved_from: ${answers}`);
+  const nested = nestedTermViolations(g.entries);
+  const collisions = renderingCollisions(g.entries);
+  console.log(`  checks: ${nested.length} nested-term violation(s)${nested.length ? ': ' + nested.map((v) => `${v.source} "${v.rendering}" must contain "${v.requiredRendering}" (${v.within})`).join('; ') : ''}; ${collisions.length} rendering collision(s)${collisions.length ? ': ' + collisions.map((c) => `${c.rendering} ← ${c.sources.join(', ')}`).join('; ') : ''}`);
+  const stillHuman = g.entries.filter((x) => x.needs_human).map((x) => x.source);
+  console.log(`  needs_human remaining: ${stillHuman.length ? stillHuman.join(', ') : 'none'}`);
+}
+
 async function structure(runId: string) {
   const dir = `${RUN_DATA_DIR}/${runId}/glossary`;
   const forms = JSON.parse(await readFile(`${dir}/address-forms.json`, 'utf8')) as AddressForm[];
@@ -189,7 +267,7 @@ async function glossary(runId: string, versionArg?: string) {
   console.log(`  ${pad('source', 10)} ${pad('rendering', 22)} ${pad('aliases', 34)} ${pad('banned', 26)} ${pad('decided_by', 13)} rationale`);
   for (const e of g.entries) {
     const al = e.alias_renderings.map((a) => `${a.source}→${a.rendering}`).join(', ') || '—';
-    const flag = e.needs_human ? ' ⚠' : '';
+    const flag = e.needs_human ? ' ⚠' : e.decided_by === 'human' ? ' ✎' : '';
     console.log(`  ${pad(e.source, 10)} ${pad(trunc(e.rendering, 21), 22)} ${pad(trunc(al, 33), 34)} ${pad(trunc(e.banned.join(', ') || '—', 25), 26)} ${pad(e.decided_by + flag, 13)} ${trunc(e.rationale, 90)}`);
   }
   const by = (k: string) => g.entries.filter((e) => e.decided_by === k).length;
@@ -210,6 +288,11 @@ async function main() {
     return book(files, stopAfter);
   }
   if (cmd === 'structure' && rest[0]) return structure(rest[0]);
+  if (cmd === 'resolve' && rest.length >= 3) {
+    const unbanIdx = rest.indexOf('--unban');
+    const noteIdx = rest.indexOf('--note');
+    return resolve(rest[0], rest[1], rest[2], { unban: unbanIdx >= 0 ? rest[unbanIdx + 1] : undefined, sameVersion: rest.includes('--same-version'), note: noteIdx >= 0 ? rest[noteIdx + 1] : undefined });
+  }
   if (cmd === 'translate' && rest.length >= 2) {
     const detach = rest.includes('--detach');
     const args = rest.filter((a) => a !== '--detach');
@@ -218,7 +301,7 @@ async function main() {
   if (cmd === 'wait' && rest[0]) return waitRun(rest[0], rest[1]);
   if (cmd === 'eval' && rest[0]) return evalRun(rest[0], rest[1]);
   if (cmd === 'glossary' && rest[0]) return glossary(rest[0], rest[1]);
-  console.error('usage:\n  cli start <chapter-file> [runId]\n  cli book <chapter-files...> [--stop-after group|glossary]\n  cli translate <glossaryRunId> <chapter-files...> [--detach]\n  cli wait <runId> [glossaryRunId]\n  cli structure <runId>\n  cli glossary <runId> [version]\n  cli eval <runId> [glossaryRunId]');
+  console.error('usage:\n  cli start <chapter-file> [runId]\n  cli book <chapter-files...> [--stop-after group|glossary]\n  cli translate <glossaryRunId> <chapter-files...> [--detach]\n  cli wait <runId> [glossaryRunId]\n  cli structure <runId>\n  cli resolve <runId> <source> <rendering> [--unban <variant>] [--same-version] [--note <text>]\n  cli glossary <runId> [version]\n  cli eval <runId> [glossaryRunId]');
   process.exit(2);
 }
 

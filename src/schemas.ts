@@ -156,11 +156,13 @@ export const GlossaryEntrySchema = z.object({
   alias_renderings: z.array(AliasRenderingSchema),
   banned: z.array(z.string()),
   context_rules: z.array(z.object({ when: z.string(), rendering: z.string() })),
-  decided_by: z.enum(['agreement', 'terminologist']),
+  decided_by: z.enum(['agreement', 'terminologist', 'human']),
   rationale: z.string(),
   confidence: z.number(),
   needs_human: z.boolean(),
   needs_human_reason: z.string().nullable(),
+  /** Set by `cli resolve`: which needs_human flag or reviewer dispute this human decision answers. */
+  resolved_from: z.string().nullable().optional(),
   /** Deterministic fixes applied by code after the model decided (audit trail). */
   code_notes: z.array(z.string()),
 });
