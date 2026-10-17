@@ -83,11 +83,17 @@ const STANCES: Stance[] = ['fidelity', 'readability', 'genre'];
 /** One contested-or-not term: three blind proposers; agreement freezes, otherwise critic → terminologist. */
 export async function DebateWorkflow(input: DebateWorkflowInput): Promise<DebateWorkflowResult> {
   const base = { runId: input.runId, entitiesPath: input.entitiesPath, policiesPath: input.policiesPath, source: input.source, precedentGlossaryPath: input.precedentGlossaryPath };
-  const proposals = await Promise.all(STANCES.map((stance) => smart.propose({ ...base, stance })));
+  // A single looping proposer must not fail the debate: proceed with the proposals that arrived.
+  const settled = await Promise.allSettled(STANCES.map((stance) => smart.propose({ ...base, stance })));
+  const proposals = settled.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
+  const failedStances = STANCES.filter((_, i) => settled[i].status === 'rejected');
+  if (!proposals.length) throw new Error(`all three proposers failed for ${input.source}`);
   const ps: Proposal[] = proposals.map((p) => p.proposal);
+  const failureNotes = failedStances.map((st) => `proposer ${st} failed after retries (model loop or rate limit); decided from ${ps.length} proposal(s)`);
   const rawKeys = ps.map((p) => normRaw(p.rendering));
   const normKeys = ps.map((p) => normRendering(p.rendering));
-  const agreement: DebateWorkflowResult['agreement'] = rawKeys.every((r) => r === rawKeys[0]) ? 'raw' : normKeys.every((r) => r === normKeys[0]) ? 'normalized' : 'none';
+  // Agreement needs at least two proposals; a lone proposal goes to the terminologist.
+  const agreement: DebateWorkflowResult['agreement'] = ps.length < 2 ? 'none' : rawKeys.every((r) => r === rawKeys[0]) ? 'raw' : normKeys.every((r) => r === normKeys[0]) ? 'normalized' : 'none';
   const rawRenderings = ps.map((p) => p.rendering);
   const aliasesFromEntity = await local.listEntityAliases({ entitiesPath: input.entitiesPath, source: input.source });
 
@@ -111,12 +117,13 @@ export async function DebateWorkflow(input: DebateWorkflowInput): Promise<Debate
       confidence: Math.min(...ps.map((p) => p.confidence)),
       needs_human: false,
       needs_human_reason: null,
-      code_notes: agreement === 'normalized' ? [`agreement after normalization of: ${rawRenderings.join(' | ')}`] : [],
+      code_notes: [...failureNotes, ...(agreement === 'normalized' ? [`agreement after normalization of: ${rawRenderings.join(' | ')}`] : [])],
     };
-    return { entry, calls: 3, agreement, rawRenderings };
+    return { entry, calls: ps.length, agreement, rawRenderings };
   }
 
-  const { critique } = await smart.critique({ ...base, proposals: ps, otherSources: input.otherSources });
+  // The critic compares three proposals; with fewer, go straight to the terminologist.
+  const critique = ps.length === 3 ? (await smart.critique({ ...base, proposals: ps, otherSources: input.otherSources })).critique : null;
   const { decision, notes } = await smart.decide({ ...base, proposals: ps, critique, otherSources: input.otherSources });
   const entry: GlossaryEntry = {
     source: input.source,
@@ -131,9 +138,9 @@ export async function DebateWorkflow(input: DebateWorkflowInput): Promise<Debate
     confidence: decision.confidence,
     needs_human: decision.needs_human,
     needs_human_reason: decision.needs_human ? decision.rationale : null,
-    code_notes: notes,
+    code_notes: [...failureNotes, ...notes],
   };
-  return { entry, calls: 5, agreement, rawRenderings };
+  return { entry, calls: ps.length + (critique ? 2 : 1), agreement, rawRenderings };
 }
 
 // ---------------------------------------------------------------------------------------------
