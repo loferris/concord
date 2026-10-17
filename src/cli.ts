@@ -399,7 +399,10 @@ async function main() {
   }
   if (cmd === 'wait' && rest[0]) return waitRun(rest[0], rest[1]);
   if (cmd === 'report' && rest[0]) {
-    const html = await buildReport(RUN_DATA_DIR, rest[0], rest[1]);
+    const gvIdx = rest.indexOf('--glossary-version');
+    const gv = gvIdx >= 0 ? Number(rest[gvIdx + 1]) : undefined;
+    const args = rest.filter((a, i) => gvIdx < 0 || (i !== gvIdx && i !== gvIdx + 1));
+    const html = await buildReport(RUN_DATA_DIR, args[0], args[1], gv);
     const out = `${RUN_DATA_DIR}/${rest[0]}/report.html`;
     await writeAtomic(out, html);
     console.log(`[cli] wrote ${out} (${(html.length / 1024).toFixed(0)} KB)`);
@@ -410,7 +413,7 @@ async function main() {
     return evalRun(a.runId, a.glossaryRunId, a.withRef, a.glossaryVersion, a.withHits);
   }
   if (cmd === 'glossary' && rest[0]) return glossary(rest[0], rest[1]);
-  console.error('usage:\n  cli start <chapter-file> [runId]\n  cli book <chapter-files...> [--stop-after group|glossary]\n  cli translate <glossaryRunId> <chapter-files...> [--detach] [--into <existingRunId>]\n  cli wait <runId> [glossaryRunId]\n  cli structure <runId>\n  cli add-chapter <runId> <chapter-file>   (incremental mode; glossary grows one version per chapter)\n  cli growth <runId>\n  cli resolve <runId> <source> <rendering> [--unban <variant>] [--same-version] [--note <text>]\n  cli glossary <runId> [version]\n  cli eval <runId> [glossaryRunId] [--ref]\n  cli report <runId> [glossaryRunId]');
+  console.error('usage:\n  cli start <chapter-file> [runId]\n  cli book <chapter-files...> [--stop-after group|glossary]\n  cli translate <glossaryRunId> <chapter-files...> [--detach] [--into <existingRunId>]\n  cli wait <runId> [glossaryRunId]\n  cli structure <runId>\n  cli add-chapter <runId> <chapter-file>   (incremental mode; glossary grows one version per chapter)\n  cli growth <runId>\n  cli resolve <runId> <source> <rendering> [--unban <variant>] [--same-version] [--note <text>]\n  cli glossary <runId> [version]\n  cli eval <runId> [glossaryRunId] [--ref]\n  cli report <runId> [glossaryRunId] [--glossary-version N]');
   process.exit(2);
 }
 

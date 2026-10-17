@@ -16,8 +16,11 @@ async function readJson<T>(path: string): Promise<T | null> {
   }
 }
 
-export async function buildReport(runDataDir: string, runId: string, glossaryRunId?: string): Promise<string> {
-  const ab = await computeAblation(runDataDir, runId, glossaryRunId);
+export async function buildReport(runDataDir: string, runId: string, glossaryRunId?: string, glossaryVersion?: number): Promise<string> {
+  // Default to the latest glossary version of the glossary run (an incremental run's chapters each used an older one).
+  const gRun = glossaryRunId ?? (JSON.parse(await readFile(`${runDataDir}/${runId}/chapters/${(await readdir(`${runDataDir}/${runId}/chapters`)).sort()[0]}/translation.json`, 'utf8')) as { glossary: string }).glossary.split('/')[1];
+  const latest = Math.max(...(await readdir(`${runDataDir}/${gRun}/glossary`)).map((f) => Number(f.match(/^glossary\.v(\d+)\.json$/)?.[1] ?? 0)));
+  const ab = await computeAblation(runDataDir, runId, gRun, glossaryVersion ?? latest);
   const gDir = `${runDataDir}/${ab.glossaryRunId}/glossary`;
   const g = ab.glossary;
   const chapters = await Promise.all(ab.chapterNames.map((n) => readJson<{ paragraphs: unknown[]; new_terms: { source: string; provisional_rendering: string }[] }>(`${runDataDir}/${runId}/chapters/${n}/translation.json`)));
