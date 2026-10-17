@@ -96,12 +96,12 @@ and is read by the eval only (a test enforces it). See `docs/prompts.md` for eve
 
 ## Credits
 
-- Written with [Claude Code](https://claude.com/claude-code) as the coding agent, on the day of the hackathon.
+- Written with [Claude Code](https://claude.com/claude-code) as the coding agent, on the day of the hackathon, using both Opus 5.5 and Fable 5.1.
 - Models on [Crusoe Managed Inference](https://www.crusoe.ai/): NVIDIA Nemotron 3 Super and 3.5 Lightning
   (glossary decisions, extraction), DeepSeek V4.1 Flash (tagging, translation), Z.ai GLM-5.3-Flash (review).
 - Orchestration: [Temporal](https://temporal.io/) (TypeScript SDK, dev server).
 - Demo video voice: ElevenLabs.
-- fableforge was inspiration only; no code was reused.
+- fableforge, a different project of mine, was inspiration only; no code was reused.
 - Source text: *The Grey List* (灰名单), original demo text written for this hackathon (see `data/README.txt`).
 
 ## Built today (Oct 17, 2026)
@@ -373,6 +373,6 @@ Quality beyond terminology: in the canonical run it sent chapter 3 back once (1 
 <details>
 <summary><b>What was built today?</b></summary>
 
-Everything in this repository, from 10:45 on October 17, 2026, with Claude Code as a coding agent. The commit history shows the order. fableforge was an inspiration only; no code was reused.
+Everything in this repository, from 10:45 on October 17, 2026, with Claude Code as a coding agent. The commit history shows the order. fableforge, a different project of mine, was an inspiration only; no code was reused.
 
 </details>
