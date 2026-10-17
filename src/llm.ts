@@ -70,7 +70,8 @@ function classify(err: unknown): never {
     if (NON_RETRYABLE_STATUS.has(status)) {
       throw ApplicationFailure.create({ type: 'LLMNonRetryable', message: msg, nonRetryable: true, cause: err });
     }
-    throw ApplicationFailure.create({ type: 'LLMRetryable', message: msg, nonRetryable: false, cause: err });
+    // Rate limits reset per minute; back off longer than the default schedule before retrying.
+    throw ApplicationFailure.create({ type: 'LLMRetryable', message: msg, nonRetryable: false, cause: err, nextRetryDelay: status === 429 ? '15s' : undefined });
   }
   throw ApplicationFailure.create({
     type: 'LLMUnknown',
@@ -138,7 +139,9 @@ export async function chatJson<T>(req: ChatJsonRequest, schema: ZodType<T>): Pro
   const raw = useFakeModel() ? await fakeChatJson(req) : await realChatJson(req, schema);
   let parsed: unknown;
   try {
-    parsed = JSON.parse(raw.content);
+    // Some models wrap JSON in a code fence despite response_format; strip it before parsing.
+    const text = raw.content.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+    parsed = JSON.parse(text);
   } catch (e) {
     throw ApplicationFailure.create({ type: 'LLMBadJson', message: `model returned non-JSON: ${(e as Error).message}`, nonRetryable: false });
   }

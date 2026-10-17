@@ -5,7 +5,7 @@ import { chatJson } from '../llm';
 import { taggerPrompt } from '../prompts';
 import { TaggedChapterSchema, type TaggedChapter, type Usage } from '../schemas';
 import { formatParagraphs, splitParagraphs } from '../text';
-import { readText, runDir, writeJsonAtomic } from './io';
+import { readText, recordUsage, runDir, writeJsonAtomic } from './io';
 import { attemptSeed, chapterNameOf, modelForAttempt, withHeartbeat } from './common';
 
 export interface TagChapterInput {
@@ -115,7 +115,7 @@ export async function tagChapter(input: TagChapterInput): Promise<TagChapterOutp
     const addressFormsPath = `${dir}/address-forms.json`;
     await writeJsonAtomic(taggedPath, { chapter: chapterName, source: input.chapterPath, ...ordered });
     await writeJsonAtomic(addressFormsPath, addressForms);
-    await writeJsonAtomic(`${dir}/tag.usage.json`, res.usage);
+    await recordUsage(input.runId, 'tagger', chapterName, res.usage);
     return { chapterName, taggedPath, addressFormsPath, paragraphCount: ordered.paragraphs.length, segmentCount: ordered.paragraphs.reduce((n, p) => n + p.segments.length, 0), usage: res.usage };
   });
 }

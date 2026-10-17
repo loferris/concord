@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve, sep } from 'node:path';
 import { RUN_DATA_DIR } from '../config';
 
@@ -30,4 +30,11 @@ export async function writeJsonAtomic(path: string, value: unknown): Promise<voi
 
 export async function readText(path: string): Promise<string> {
   return readFile(path, 'utf8');
+}
+
+/** One line per model call: run-data/<runId>/usage.jsonl. The eval sums cost and cached-token rate from it. */
+export async function recordUsage(runId: string, role: string, label: string, usage: unknown): Promise<void> {
+  const path = runDir(runId, 'usage.jsonl');
+  await mkdir(dirname(path), { recursive: true });
+  await appendFile(path, JSON.stringify({ ts: new Date().toISOString(), role, label, ...(usage as object) }) + '\n', 'utf8');
 }

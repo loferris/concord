@@ -4,11 +4,13 @@ import type * as activities from './activities';
 import { TASK_QUEUES } from './config';
 import type { GlossaryEntry, Proposal, Usage } from './schemas';
 import type { Stance } from './prompts';
+import { normRaw, normRendering } from './normalize';
 
 const retry = { initialInterval: '2s', backoffCoefficient: 2, maximumInterval: '60s', maximumAttempts: 6 };
 
 const fast = proxyActivities<typeof activities>({ taskQueue: TASK_QUEUES.fast, startToCloseTimeout: '10 minutes', heartbeatTimeout: '15 seconds', retry });
-const smart = proxyActivities<typeof activities>({ taskQueue: TASK_QUEUES.smart, startToCloseTimeout: '10 minutes', heartbeatTimeout: '15 seconds', retry });
+// Decision calls get more attempts: 429s burn attempts too, and the family fallback starts at attempt 4.
+const smart = proxyActivities<typeof activities>({ taskQueue: TASK_QUEUES.smart, startToCloseTimeout: '10 minutes', heartbeatTimeout: '15 seconds', retry: { ...retry, maximumAttempts: 8 } });
 // File-only activities: quick, no heartbeat needed.
 const local = proxyActivities<typeof activities>({ taskQueue: TASK_QUEUES.smart, startToCloseTimeout: '1 minute', retry: { maximumAttempts: 3 } });
 
@@ -46,21 +48,25 @@ export interface DebateWorkflowInput {
 export interface DebateWorkflowResult {
   entry: GlossaryEntry;
   calls: number;
+  /** How the three proposals compared: identical after case/whitespace, identical only after article/quote/hyphen normalization, or different. */
+  agreement: 'raw' | 'normalized' | 'none';
+  rawRenderings: string[];
 }
 
 const STANCES: Stance[] = ['fidelity', 'readability', 'genre'];
-const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
 
 /** One contested-or-not term: three blind proposers; agreement freezes, otherwise critic → terminologist. */
 export async function DebateWorkflow(input: DebateWorkflowInput): Promise<DebateWorkflowResult> {
   const base = { runId: input.runId, entitiesPath: input.entitiesPath, policiesPath: input.policiesPath, source: input.source };
   const proposals = await Promise.all(STANCES.map((stance) => smart.propose({ ...base, stance })));
   const ps: Proposal[] = proposals.map((p) => p.proposal);
-  const renderings = ps.map((p) => norm(p.rendering));
-  // We need the entity's aliases for the entry; pull them from the first proposal's alias list (sources).
+  const rawKeys = ps.map((p) => normRaw(p.rendering));
+  const normKeys = ps.map((p) => normRendering(p.rendering));
+  const agreement: DebateWorkflowResult['agreement'] = rawKeys.every((r) => r === rawKeys[0]) ? 'raw' : normKeys.every((r) => r === normKeys[0]) ? 'normalized' : 'none';
+  const rawRenderings = ps.map((p) => p.rendering);
   const aliasesFromEntity = await local.listEntityAliases({ entitiesPath: input.entitiesPath, source: input.source });
 
-  if (renderings.every((r) => r === renderings[0])) {
+  if (agreement !== 'none') {
     const banned = Array.from(new Set(ps.flatMap((p) => p.banned)));
     // Alias renderings: take the first proposal's, filling gaps from the others.
     const alias_renderings = aliasesFromEntity.map((a) => {
@@ -80,12 +86,13 @@ export async function DebateWorkflow(input: DebateWorkflowInput): Promise<Debate
       confidence: Math.min(...ps.map((p) => p.confidence)),
       needs_human: false,
       needs_human_reason: null,
+      code_notes: agreement === 'normalized' ? [`agreement after normalization of: ${rawRenderings.join(' | ')}`] : [],
     };
-    return { entry, calls: 3 };
+    return { entry, calls: 3, agreement, rawRenderings };
   }
 
   const { critique } = await smart.critique({ ...base, proposals: ps, otherSources: input.otherSources });
-  const { decision } = await smart.decide({ ...base, proposals: ps, critique, otherSources: input.otherSources });
+  const { decision, notes } = await smart.decide({ ...base, proposals: ps, critique, otherSources: input.otherSources });
   const entry: GlossaryEntry = {
     source: input.source,
     type: input.type,
@@ -99,8 +106,9 @@ export async function DebateWorkflow(input: DebateWorkflowInput): Promise<Debate
     confidence: decision.confidence,
     needs_human: decision.needs_human,
     needs_human_reason: decision.needs_human ? decision.rationale : null,
+    code_notes: notes,
   };
-  return { entry, calls: 5 };
+  return { entry, calls: 5, agreement, rawRenderings };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -117,7 +125,7 @@ export interface BookWorkflowResult {
   grouping: { entityCount: number; keptSeparateCount: number; entitiesPath: string; addressFormsPath: string };
   policiesPath?: string;
   glossaryPath?: string;
-  glossary?: { entries: number; byAgreement: number; debated: number; needsHuman: number; modelCalls: number };
+  glossary?: { entries: number; byAgreement: number; agreementRaw: number; agreementNormalized: number; debated: number; needsHuman: number; modelCalls: number };
   status: 'structured' | 'glossary-frozen';
 }
 
@@ -166,6 +174,8 @@ export async function BookWorkflow(input: BookWorkflowInput): Promise<BookWorkfl
     glossary: {
       entries: g.entryCount,
       byAgreement: entries.filter((e) => e.decided_by === 'agreement').length,
+      agreementRaw: debates.filter((d) => d.agreement === 'raw').length,
+      agreementNormalized: debates.filter((d) => d.agreement === 'normalized').length,
       debated: entries.filter((e) => e.decided_by === 'terminologist').length,
       needsHuman: entries.filter((e) => e.needs_human).length,
       modelCalls: 1 + debates.reduce((n, d) => n + d.calls, 0),

@@ -92,7 +92,10 @@ async function glossary(runId: string) {
     console.log(`  ${pad(e.source, 10)} ${pad(trunc(e.rendering, 21), 22)} ${pad(trunc(al, 33), 34)} ${pad(trunc(e.banned.join(', ') || '—', 25), 26)} ${pad(e.decided_by + flag, 13)} ${trunc(e.rationale, 90)}`);
   }
   const by = (k: string) => g.entries.filter((e) => e.decided_by === k).length;
-  console.log(`\n  ${g.entries.length} entities, ${by('agreement')} by agreement, ${by('terminologist')} debated, ${g.entries.filter((e) => e.needs_human).length} needs_human`);
+  const normalizedAgree = g.entries.filter((e) => e.code_notes.some((n) => n.startsWith('agreement after normalization'))).length;
+  console.log(`\n  ${g.entries.length} entities, ${by('agreement')} by agreement (${by('agreement') - normalizedAgree} raw, ${normalizedAgree} after normalization), ${by('terminologist')} debated, ${g.entries.filter((e) => e.needs_human).length} needs_human`);
+  const notes = g.entries.flatMap((e) => e.code_notes.map((n) => `${e.source}: ${n}`));
+  if (notes.length) console.log(`  code notes (${notes.length}):\n    ${notes.join('\n    ')}`);
 }
 
 async function main() {
@@ -102,7 +105,7 @@ async function main() {
   if (cmd === 'book' && rest.length) {
     const stopIdx = rest.indexOf('--stop-after');
     const stopAfter = stopIdx >= 0 ? (rest[stopIdx + 1] as 'group') : undefined;
-    const files = rest.filter((a, i) => i !== stopIdx && i !== stopIdx + 1);
+    const files = stopIdx >= 0 ? rest.filter((_, i) => i !== stopIdx && i !== stopIdx + 1) : rest;
     return book(files, stopAfter);
   }
   if (cmd === 'structure' && rest[0]) return structure(rest[0]);

@@ -88,14 +88,25 @@ function fakePolicies() {
   };
 }
 
+/** Stable, CJK-free placeholder rendering for a source string. */
+function fakeRender(source: string, variant = ''): string {
+  let h = 0;
+  for (const ch of source) h = (h * 31 + ch.codePointAt(0)!) >>> 0;
+  return `Term${variant}-${h.toString(36)}`;
+}
+
 function fakePropose(system: string, user: string) {
-  const source = user.match(/^source: (.+)$/m)?.[1] ?? 'X';
-  const type = user.match(/^type: (.+)$/m)?.[1] ?? 'term';
+  const source = user.match(/source: (\S+)/)?.[1] ?? 'X';
+  const type = user.match(/type: (\S+)/)?.[1] ?? 'term';
   const aliases = Array.from(user.matchAll(/(\S+) \[(?:nickname|address|title|variant)/g)).map((m) => m[1]);
   const genre = system.includes('conventionally render');
-  // People: all three stances agree. Terms: the genre stance differs, forcing a debate.
-  const rendering = type === 'person' || !genre ? `R(${source})` : `G(${source})`;
-  return { rendering, alias_renderings: aliases.map((a) => ({ source: a, rendering: `R(${a})` })), banned: [`Bad(${source})`], confidence: 0.8, rationale: 'fake proposal' };
+  const readability = system.includes('English-speaking reader');
+  // People: all three agree. Orgs/places: readability adds an article (agreement only after normalization).
+  // Everything else: the genre stance differs, forcing a debate.
+  let rendering = fakeRender(source);
+  if (type === 'org' || type === 'place') rendering = readability ? `the ${rendering}` : rendering;
+  else if (type !== 'person' && genre) rendering = fakeRender(source, 'G');
+  return { rendering, alias_renderings: aliases.map((a) => ({ source: a, rendering: fakeRender(a) })), banned: [`Bad-${fakeRender(source)}`, rendering], confidence: 0.8, rationale: 'fake proposal' };
 }
 
 function fakeCritique() {
@@ -103,10 +114,10 @@ function fakeCritique() {
 }
 
 function fakeDecide(user: string) {
-  const source = user.match(/^source: (.+)$/m)?.[1] ?? 'X';
-  const first = user.match(/rendering: ([^;]+);/)?.[1] ?? `R(${source})`;
-  const aliases = Array.from(user.matchAll(/(\S+) \[(?:nickname|address|title|variant)/g)).map((m) => m[1]);
-  return { source, rendering: first, alias_renderings: aliases.map((a) => ({ source: a, rendering: `R(${a})` })), banned: [`Bad(${source})`], context_rules: [], rationale: 'fake: adopted proposal A', confidence: 0.7, needs_human: false };
+  const source = user.match(/source: (\S+)/)?.[1] ?? 'X';
+  const first = user.match(/rendering: ([^;]+);/)?.[1] ?? fakeRender(source);
+  // Deliberately omit alias renderings so the code-side fill is exercised offline.
+  return { source, rendering: first, alias_renderings: [], banned: [`Bad-${fakeRender(source)}`], context_rules: [{ when: '', rendering: '' }], rationale: 'fake: adopted proposal A', confidence: 0.7, needs_human: false };
 }
 
 export async function fakeChatJson(req: ChatJsonRequest): Promise<ChatJsonRaw> {

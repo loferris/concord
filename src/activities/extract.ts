@@ -1,11 +1,11 @@
-import { MODELS, EVAL_SEED } from '../config';
+import { MODELS } from '../config';
 import { chatJson } from '../llm';
 import { boundaryEntropyCandidates, formatCandidates, verifyExtraction } from '../extract';
 import { extractorPrompt } from '../prompts';
 import { ExtractionSchema, type Usage } from '../schemas';
 import { splitParagraphs } from '../text';
-import { readText, runDir, writeJsonAtomic } from './io';
-import { chapterNameOf, withHeartbeat } from './common';
+import { readText, recordUsage, runDir, writeJsonAtomic } from './io';
+import { attemptSeed, chapterNameOf, withHeartbeat } from './common';
 
 export interface ExtractTermsInput {
   runId: string;
@@ -36,7 +36,7 @@ export async function extractTerms(input: ExtractTermsInput): Promise<ExtractTer
     const candidates = boundaryEntropyCandidates(all, { top: 40 });
     const prompt = extractorPrompt(formatCandidates(candidates), bookBlocks.join('\n\n'));
     const res = await chatJson(
-      { model: MODELS.extractor, ...prompt, schemaName: 'extraction', maxTokens: 8192, seed: EVAL_SEED, enableThinking: false },
+      { model: MODELS.extractor, ...prompt, schemaName: 'extraction', maxTokens: 8192, seed: attemptSeed(), enableThinking: false },
       ExtractionSchema,
     );
     // Code check: every item must occur verbatim in the book; terms/phrases must recur; ids are recomputed.
@@ -48,7 +48,7 @@ export async function extractTerms(input: ExtractTermsInput): Promise<ExtractTer
     const candidatesPath = `${dir}/candidates.json`;
     await writeJsonAtomic(candidatesPath, candidates);
     await writeJsonAtomic(extractionPath, extraction);
-    await writeJsonAtomic(`${dir}/extract.usage.json`, res.usage);
+    await recordUsage(input.runId, 'extractor', 'book', res.usage);
     return { extractionPath, candidatesPath, candidateCount: candidates.length, itemCount: extraction.items.length, rejectedCount: extraction.rejected_candidates.length + dropped.length, usage: res.usage };
   });
 }

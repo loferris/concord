@@ -1,11 +1,10 @@
-import { heartbeat } from '@temporalio/activity';
 import { ApplicationFailure } from '@temporalio/common';
-import { basename, extname } from 'node:path';
-import { MODELS, EVAL_SEED } from '../config';
+import { MODELS } from '../config';
 import { chatJson } from '../llm';
 import { TranslationSchema, type Usage } from '../schemas';
 import { formatParagraphs, splitParagraphs } from '../text';
-import { readText, runDir, writeAtomic, writeJsonAtomic } from './io';
+import { readText, recordUsage, runDir, writeAtomic, writeJsonAtomic } from './io';
+import { attemptSeed, chapterNameOf, withHeartbeat } from './common';
 
 export interface TranslateChapterInput {
   runId: string;
@@ -34,20 +33,6 @@ Rules:
 - Preserve dialogue as dialogue, keep tone and register, and prefer idiomatic English over literal word order.
 - Return JSON only, matching the schema.`;
 
-function chapterNameOf(path: string): string {
-  return basename(path, extname(path));
-}
-
-/** Run fn while heartbeating every 5s so the workflow can detect a dead worker (heartbeatTimeout 15s). */
-async function withHeartbeat<T>(fn: () => Promise<T>): Promise<T> {
-  const timer = setInterval(() => heartbeat(), 5_000);
-  try {
-    return await fn();
-  } finally {
-    clearInterval(timer);
-  }
-}
-
 export async function translateChapter(input: TranslateChapterInput): Promise<TranslateChapterOutput> {
   return withHeartbeat(async () => {
     const chapterName = chapterNameOf(input.chapterPath);
@@ -65,7 +50,7 @@ export async function translateChapter(input: TranslateChapterInput): Promise<Tr
     const maxTokens = Math.max(1024, Math.ceil(source.length * 1.5) + 512);
 
     const res = await chatJson(
-      { model: MODELS.translator, system, user, schemaName: 'translation', maxTokens, seed: EVAL_SEED, enableThinking: false },
+      { model: MODELS.translator, system, user, schemaName: 'translation', maxTokens, seed: attemptSeed(), enableThinking: false },
       TranslationSchema,
     );
 
@@ -91,7 +76,7 @@ export async function translateChapter(input: TranslateChapterInput): Promise<Tr
     const englishPath = `${dir}/translation.en.txt`;
     await writeJsonAtomic(translationPath, { chapter: chapterName, source: input.chapterPath, paragraphs: ordered });
     await writeAtomic(englishPath, ordered.map((p) => p.text).join('\n\n') + '\n');
-    await writeJsonAtomic(`${dir}/translate.usage.json`, res.usage);
+    await recordUsage(input.runId, 'translator', chapterName, res.usage);
 
     return { chapterName, paragraphCount: ordered.length, translationPath, englishPath, usage: res.usage };
   });

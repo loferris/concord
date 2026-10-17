@@ -57,6 +57,19 @@ readable `translation.en.txt` and `translate.usage.json`. Workflow history only 
     endless-whitespace loop (hit the 8,192-token cap at ~1 min/attempt; temperature and repetition
     penalty did not help). Retries use a perturbed seed, and from the 3rd attempt the tagger/grouper fall
     back to DeepSeek V4.1 Flash (`modelForAttempt`). One chapter in the real run took that path.
-- [ ] Milestone 2b: policies + debates + frozen glossary.v1.json (code written, not yet run).
+- [x] **Milestone 2b**: decide and freeze. `bun run cli book data/zh/*.txt` runs tag → extract → group →
+  policies → one `DebateWorkflow` child per entity → `glossary.v1.json`; `cli glossary <runId>` prints it.
+  - Policies (Super) run once before any term. Three blind proposers (fidelity / readability / genre, each with
+    its own seed) run in parallel; identical renderings freeze as `decided_by: agreement` (raw, or after
+    normalizing articles, quotes and hyphen/space; grey vs gray stays a disagreement). Otherwise critic →
+    terminologist, `decided_by: terminologist` with a rationale.
+  - **Code checks around every model call** (the hardening pass): grouper sources must be extracted items
+    and belong to one entity, unplaced items become singletons; proposer/terminologist renderings must be
+    non-empty and CJK-free, banned never contains the chosen rendering, alias renderings are filled, the
+    terminologist's `source` is corrected, empty context rules dropped; the glossary writer flags CJK and
+    rendering collisions and removes banned variants that are another entry's rendering. Every fix is
+    recorded in the entry's `code_notes`.
+  - Resilience: perturbed seed per retry everywhere; Super decision calls fall back to Lightning from the
+    4th attempt; 429s wait 15s. Every model call appends to `run-data/<run>/usage.jsonl`.
 - [ ] Milestone 3: all chapters in parallel + checks report.
 - [ ] Milestone 4: eval (baseline vs full system), kill -9 / resume script.

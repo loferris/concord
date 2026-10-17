@@ -99,7 +99,7 @@ export const ProposalSchema = z.object({
   rendering: z.string(),
   alias_renderings: z.array(AliasRenderingSchema),
   banned: z.array(z.string()),
-  confidence: z.number().describe('0-1'),
+  confidence: z.number().min(0).max(1).describe('0-1'),
   rationale: z.string().describe('At most two sentences'),
 });
 export type Proposal = z.infer<typeof ProposalSchema>;
@@ -119,7 +119,7 @@ export const TerminologistSchema = z.object({
   banned: z.array(z.string()),
   context_rules: z.array(z.object({ when: z.string(), rendering: z.string() })).describe('Only when the rendering depends on context; otherwise an empty array'),
   rationale: z.string(),
-  confidence: z.number().describe('0-1'),
+  confidence: z.number().min(0).max(1).describe('0-1'),
   needs_human: z.boolean(),
 });
 export type TerminologistDecision = z.infer<typeof TerminologistSchema>;
@@ -138,6 +138,8 @@ export const GlossaryEntrySchema = z.object({
   confidence: z.number(),
   needs_human: z.boolean(),
   needs_human_reason: z.string().nullable(),
+  /** Deterministic fixes applied by code after the model decided (audit trail). */
+  code_notes: z.array(z.string()),
 });
 export type GlossaryEntry = z.infer<typeof GlossaryEntrySchema>;
 export const GlossarySchema = z.object({
