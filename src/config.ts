@@ -2,8 +2,10 @@
 export const MODELS = {
   /** Output: chapter translation. Cheapest cached input in the catalog; thinking off. */
   translator: 'deepseek-ai/DeepSeek-V4.1-Flash',
-  /** Coordination + extraction: terminologist, reviewer, proposers, glossary extraction. */
+  /** Coordination: terminologist, reviewer, proposers. */
   smart: 'nvidia/NVIDIA-Nemotron-3-Super-120B-A12B',
+  /** Extraction: reads the whole book in one call (1M ctx) and spreads load onto a third rate limit. */
+  extractor: 'nvidia/Nemotron-3.5-Lightning-30B-A3B',
 } as const;
 
 export const TASK_QUEUES = {

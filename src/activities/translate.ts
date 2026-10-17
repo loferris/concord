@@ -30,7 +30,7 @@ const TRANSLATOR_BRIEF = `You are a literary translator rendering a Chinese web 
 Rules:
 - Translate every paragraph. Output exactly one entry per source paragraph, with the same id, in the same order.
 - Do not merge, split, drop, or add paragraphs. Do not leave any Chinese characters in the output.
-- Keep names, titles, and cultivation terms consistent within the chapter. Follow the glossary exactly when one is given.
+- Keep names, titles, and invented terms consistent within the chapter. Follow the glossary exactly when one is given.
 - Preserve dialogue as dialogue, keep tone and register, and prefer idiomatic English over literal word order.
 - Return JSON only, matching the schema.`;
 

@@ -18,8 +18,10 @@ memory (a glossary) stays current, efficient and conflict-free, and prove it wit
   - translator (output): `deepseek-ai/DeepSeek-V4.1-Flash` — thinking off via
     `chat_template_kwargs: { thinking: false }`; cached input $0.007/1M; reports `cached_tokens` and
     `created_cache_tokens`.
-  - terminologist, reviewer, proposers, extraction (coordination): `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B`
+  - terminologist, reviewer, proposers (coordination): `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B`
     — thinking toggle is `chat_template_kwargs: { enable_thinking: true|false }`.
+  - extraction: `nvidia/Nemotron-3.5-Lightning-30B-A3B` — 1M context, reads the whole book in one call;
+    a third model means a third per-model rate limit.
   - `src/llm.ts#thinkingKwargs` picks the right switch per model family.
 - max_tokens ≥ 1024; treat finish_reason "length" or empty content as a retryable error.
 - Nemotron 3.5 Lightning returns `prompt_tokens_details: null` (no cache reporting); we record that as null.
@@ -28,11 +30,18 @@ memory (a glossary) stays current, efficient and conflict-free, and prove it wit
   400/401/403/404 → `ApplicationFailure.nonRetryable`.
 - Put stable content first in every prompt (brief + frozen glossary, sorted), chapter text last,
   for prefix caching. Log usage.prompt_tokens_details.cached_tokens.
+- Measured Oct 17: cache lands in 512-token blocks and a hit is not visible until a few seconds after the
+  write. So: the shared prefix (brief + policies + glossary) must be comfortably > 512 tokens and
+  byte-identical across chapters, and BookWorkflow translates ONE chapter first to warm the cache, then
+  fans out the rest.
+- Run the worker through tsx/Node (`bun run worker` does this). Temporal's worker needs Node native
+  modules; do not run it on the Bun runtime.
 - Use a fixed `seed` for eval runs.
 
 ## Architecture
 - `src/workflows.ts`: deterministic only, no I/O, no OpenAI import.
-  - `BookWorkflow`: extract → debate → freeze glossary → chapters in parallel → post-pass checks.
+  - `BookWorkflow`: extract → debate → freeze glossary → first chapter alone (warms the prefix cache) →
+    remaining chapters in parallel → post-pass checks.
   - `DebateWorkflow` (child, one per contested term).
   - `ChapterWorkflow`: translate → term lint → review → revise (≤3) → approve or flag.
 - `src/activities/`: every model call and every file read/write. All long activities heartbeat in the
