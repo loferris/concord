@@ -12,4 +12,4 @@
 
 [[ablation]] With the team, the same writer model follows its glossary in every case we checked, and never uses a variant it ruled out, for about thirteen cents for the whole book...
 
-[[close]] Neemo-tron decides the words, DeepSeek writes, G L M checks. Concord: agents agree on the book's words, and code checks they kept them.
+[[close]] Neemo-tron decides the words, DeepSeek writes, Gee Ell Em checks. Concord: agents agree on the book's words, and code checks they kept them.
