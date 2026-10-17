@@ -35,6 +35,10 @@ readable `translation.en.txt` and `translate.usage.json`. Workflow history only 
   - Caching note: Crusoe returns `prompt_tokens_details: null` for Lightning and `cached_tokens: 0` for
     Super on identical ~700-token prompts repeated back to back. We record `null` as "not reported" rather
     than 0% and keep logging it per call.
+  - Translator switched to **DeepSeek V4.1 Flash** (`deepseek-ai/DeepSeek-V4.1-Flash`, thinking off); Nemotron
+    Super stays on coordination/extraction. Chapter 1: 18/18 ids, 612 prompt / ~900 completion tokens,
+    `reasoning_tokens` 0. Cache: first calls report `created_cache_tokens: 512`; a repeat ~20s later
+    reported `cached_tokens: 512` (83.7%). Cache lands in 512-token segments and is not instant.
 - [ ] Milestone 2: extract + debate + frozen glossary.
 - [ ] Milestone 3: all chapters in parallel + checks report.
 - [ ] Milestone 4: eval (baseline vs full system), kill -9 / resume script.

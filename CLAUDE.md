@@ -14,11 +14,15 @@ memory (a glossary) stays current, efficient and conflict-free, and prove it wit
 
 ## Crusoe (read docs/crusoe-skill.md for details)
 - Base URL: https://api.inference.crusoecloud.com/v1, key in env CRUSOE_API_KEY. Never print or commit it.
-- Exact model IDs:
-  - translator: `nvidia/Nemotron-3.5-Lightning-30B-A3B`
-  - terminologist, reviewer, proposers: `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B`
-- Lightning thinks by default: pass `chat_template_kwargs: { enable_thinking: false }`; max_tokens ≥ 1024;
-  treat finish_reason "length" or empty content as a retryable error.
+- Exact model IDs (confirmed against /v1/models on Oct 17):
+  - translator (output): `deepseek-ai/DeepSeek-V4.1-Flash` — thinking off via
+    `chat_template_kwargs: { thinking: false }`; cached input $0.007/1M; reports `cached_tokens` and
+    `created_cache_tokens`.
+  - terminologist, reviewer, proposers, extraction (coordination): `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B`
+    — thinking toggle is `chat_template_kwargs: { enable_thinking: true|false }`.
+  - `src/llm.ts#thinkingKwargs` picks the right switch per model family.
+- max_tokens ≥ 1024; treat finish_reason "length" or empty content as a retryable error.
+- Nemotron 3.5 Lightning returns `prompt_tokens_details: null` (no cache reporting); we record that as null.
 - Rate limits are per model per minute. Concurrency is set per task queue, not ad hoc.
 - OpenAI client: maxRetries 0 (Temporal owns retries). 429/5xx/timeouts/schema failures → retry.
   400/401/403/404 → `ApplicationFailure.nonRetryable`.

@@ -47,6 +47,12 @@ function getClient(): OpenAI {
   return client;
 }
 
+/** Each family names its thinking switch differently; both go in chat_template_kwargs. */
+export function thinkingKwargs(model: string, enabled: boolean): Record<string, boolean> {
+  if (model.toLowerCase().startsWith('deepseek-ai/')) return { thinking: enabled };
+  return { enable_thinking: enabled }; // Nemotron 3 Super / 3.5 Lightning
+}
+
 const NON_RETRYABLE_STATUS = new Set([400, 401, 403, 404]);
 
 function classify(err: unknown): never {
@@ -81,7 +87,7 @@ async function realChatJson(req: ChatJsonRequest, schema: ZodType<unknown>): Pro
     temperature: req.temperature ?? 0.2,
     seed: req.seed,
     // Non-standard but supported by Crusoe (listed in /v1/models supported_parameters).
-    chat_template_kwargs: { enable_thinking: req.enableThinking ?? false },
+    chat_template_kwargs: thinkingKwargs(req.model, req.enableThinking ?? false),
   };
   let completion: OpenAI.Chat.Completions.ChatCompletion;
   let headers: Headers | undefined;
@@ -103,10 +109,12 @@ async function realChatJson(req: ChatJsonRequest, schema: ZodType<unknown>): Pro
     prompt_tokens: u?.prompt_tokens ?? 0,
     completion_tokens: u?.completion_tokens ?? 0,
     cached_tokens: u?.prompt_tokens_details ? (u.prompt_tokens_details.cached_tokens ?? 0) : null,
+    created_cache_tokens: (u?.prompt_tokens_details as { created_cache_tokens?: number | null } | undefined)?.created_cache_tokens ?? null,
+    reasoning_tokens: u?.completion_tokens_details?.reasoning_tokens ?? null,
   };
   console.log(
     `[llm] ${req.model} ${req.schemaName} finish=${finishReason} prompt=${usage.prompt_tokens} cached=${usage.cached_tokens ?? 'n/a'} ` +
-      `completion=${usage.completion_tokens} rl_remaining_req=${headers?.get('x-ratelimit-remaining-requests') ?? '?'} ` +
+      `created_cache=${usage.created_cache_tokens ?? 'n/a'} completion=${usage.completion_tokens} reasoning=${usage.reasoning_tokens ?? 'n/a'} rl_remaining_req=${headers?.get('x-ratelimit-remaining-requests') ?? '?'} ` +
       `rl_remaining_tok=${headers?.get('x-ratelimit-remaining-tokens') ?? '?'}`,
   );
   if (finishReason === 'length') {

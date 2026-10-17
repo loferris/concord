@@ -15,6 +15,8 @@ export const UsageSchema = z.object({
   prompt_tokens: z.number(),
   completion_tokens: z.number(),
   cached_tokens: z.number().nullable().describe('null when the provider does not report prompt_tokens_details'),
+  created_cache_tokens: z.number().nullable().optional().describe('DeepSeek on Crusoe: prefix tokens newly written to cache'),
+  reasoning_tokens: z.number().nullable().optional(),
   attempts: z.number().optional(),
 });
 export type Usage = z.infer<typeof UsageSchema>;

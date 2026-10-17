@@ -1,12 +1,14 @@
 // Shared constants. Safe to import from workflows (no I/O, no SDK imports).
 export const MODELS = {
-  translator: 'nvidia/Nemotron-3.5-Lightning-30B-A3B',
+  /** Output: chapter translation. Cheapest cached input in the catalog; thinking off. */
+  translator: 'deepseek-ai/DeepSeek-V4.1-Flash',
+  /** Coordination + extraction: terminologist, reviewer, proposers, glossary extraction. */
   smart: 'nvidia/NVIDIA-Nemotron-3-Super-120B-A12B',
 } as const;
 
 export const TASK_QUEUES = {
   workflows: 'workflows',
-  fast: 'fast', // translator (Lightning)
+  fast: 'fast', // translator (DeepSeek V4.1 Flash)
   smart: 'smart', // terminologist, reviewer, proposers (Super)
 } as const;
 
