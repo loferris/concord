@@ -237,8 +237,8 @@ body.rec .stage{width:100vw;height:100vh;max-width:none;aspect-ratio:auto;border
     <div class="fan">
       <div class="prefix rv hid" data-k="prefix">
         <p class="pl">Shared prompt prefix</p>
-        <p class="pv">Glossary v1 · frozen</p>
-        <ul><li><span class="zh">小鹿</span>Xiao Lu</li><li><span class="zh">师父</span>master</li><li><span class="zh">师傅</span>driver</li><li><span class="zh">观澜</span>Guanlan</li></ul>
+        <p class="pv">Glossary v4 · frozen</p>
+        <ul><li><span class="zh">师父</span>Shi Fu</li><li><span class="zh">师傅</span>driver</li><li><span class="zh">阿澈</span>A Che</li><li><span class="zh">周总</span>Zhou Zong</li></ul>
       </div>
       <div class="chs">
         <div class="chrow warm rv hid" data-k="r1"><span class="cl">Ch 1</span><div class="bar"><i data-k="b1"></i></div><span class="st" data-k="s1">fills cache</span>
@@ -420,7 +420,9 @@ body.rec .stage{width:100vw;height:100vh;max-width:none;aspect-ratio:auto;border
     k(r,'label').textContent = cap ? cap.label : key;
     k(r,'cmd').textContent = cap ? '$ ' + cap.cmd : '';
     if (!cap) return { hold: 0, steps: [] };
-    const all = cap.text.replace(/\t/g, '    ').split('\n');
+    const MAXC = cap.maxCols || 96;
+    const fit = l => [...l].length > MAXC ? [...l].slice(0, MAXC - 1).join('') + '…' : l;
+    const all = cap.text.replace(/\t/g, '    ').split('\n').map(fit);
     const W = box.clientWidth || 1700, H = box.clientHeight || 800;
     const maxRows = cap.rows || 24;
     const cols = Math.max(40, ...all.slice(0, 400).map(l => [...l].length));

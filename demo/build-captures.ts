@@ -12,13 +12,13 @@ import { fileURLToPath } from 'node:url';
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const capDir = path.resolve(process.argv[2] ?? path.join(dir, '..', 'demo-capture'));
 
-interface Spec { file: string; label: string; cmd: string; highlight?: string; rows?: number; reveal?: boolean; images?: string }
+interface Spec { file: string; label: string; cmd: string; highlight?: string; rows?: number; reveal?: boolean; images?: string; strip?: string }
 const SPECS: Record<string, Spec> = {
-  baseline: { file: 'baseline.txt', label: 'Baseline: one prompt per chapter, no glossary', cmd: 'grep -n -i "mentor\\|master\\|shifu" <baseline ch2, ch3>', highlight: 'mentor|master|shifu' },
-  glossary: { file: 'glossary.txt', label: 'Glossary: human decisions marked ✎', cmd: 'cli glossary', highlight: '✎|driver|Review Team|Guanlan Data' },
+  baseline: { file: 'baseline.txt', label: 'Baseline: one prompt per chapter, no glossary', cmd: 'grep -n -i "mentor\\|master\\|shifu" <baseline ch2, ch3>', highlight: 'mentor|master|shifu', strip: 'run-data/inc-demo-3/baseline/' },
+  glossary: { file: 'glossary.txt', label: 'Glossary: human decisions marked ✎', cmd: 'cli glossary', highlight: '✎|driver', rows: 14 },
   incremental: { file: 'incremental.txt', label: 'The glossary grows: one version per chapter', cmd: 'cli growth', highlight: '阿澈|师傅|alias|needs_human' },
   kill: { file: 'kill-resume.txt', label: 'kill -9 mid-run, then resume', cmd: 'scripts/kill-resume.sh', highlight: 'kill|Heartbeat timeout|attempt 2|restart|resum|completed', rows: 20, reveal: true, images: '^temporal-[23].*\\.png$' },
-  eval: { file: 'eval.txt', label: 'Same writer model, with and without the team', cmd: 'cli eval --ref', highlight: 'term consistency|banned' , rows: 22 },
+  eval: { file: 'eval.txt', label: 'Same writer model, with and without the team', cmd: 'cli eval --ref', highlight: 'glossary adherence|banned' , rows: 14 },
 };
 
 const stripAnsi = (t: string) => t.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '').replace(/\r(?!\n)/g, '\n');
@@ -32,6 +32,7 @@ for (const [key, spec] of Object.entries(SPECS)) {
   let cmd = spec.cmd;
   const first = text.split('\n', 1)[0];
   if (first.startsWith('$ ')) { cmd = first.slice(2); text = text.slice(first.length).replace(/^\n/, ''); }
+  if (spec.strip) text = text.split(spec.strip).join('');
   const images = spec.images
     ? files.filter((f) => new RegExp(spec.images!).test(f)).sort().map((f) => path.relative(dir, path.join(capDir, f)).split(path.sep).join('/'))
     : [];
