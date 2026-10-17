@@ -86,23 +86,29 @@ See `docs/temporal.md` for how the workflows, retries, fallbacks and queues inte
     variants, per-paragraph term coverage, leftover CJK, rendering collisions, nested-term violations.
   - `cli eval <runId> [glossaryRunId]` prints the ablation table: baseline vs full system, with cost and
     cached-token rate computed from `usage.jsonl` and the Crusoe price list in `src/config.ts`.
-  - **Measured (3 chapters, glossary v2 with 13 terms, same DeepSeek writer for both):**
+  - **Measured (3 chapters, glossary v2 with 13 terms, same DeepSeek writer for both; run
+    `20261017-210628-0xjf`, with the reviewer loop):**
 
     | metric | baseline (1 prompt) | full system |
     |---|---|---|
-    | term consistency (chosen / chosen+banned) | 73.0% | 93.7% |
-    | banned-variant hits (terms affected) | 31 (6) | 8 (2) |
-    | paragraph term coverage | n/a | 106/113 (93.8%) |
+    | term consistency (chosen / chosen+banned) | 72.6% | 100% |
+    | banned-variant hits (terms affected) | 31 (6) | 0 |
+    | paragraph term coverage | n/a | 109/109 |
     | leftover CJK | 0 | 0 |
-    | translation cost | $0.0027 | $0.0053 |
-    | translation cached-token rate | 0% | 16.7% (ch.3 hit 1024 of 2249) |
+    | translation cost | $0.0027 | $0.0050 |
+    | translation cached-token rate | 0% | 33.5% |
+    | review + revise (5 reviews, 2 revisions) | — | $0.027 |
     | glossary build (51 calls) | — | $0.053 |
+    | total | $0.0027 | $0.085 |
 
-    Baseline drift: 夜航 as "Night Voyage"×10 vs glossary "Ye Hang", 灰名单 "gray list"×6, 师傅 "master/mentor".
-    Remaining full-system misses: 复核 rendered "audit"×7, because the glossary itself froze 复核组 as
-    "Audit Team" while 复核 → "verification" (the nested-term check flagged it; the terminologist could not
-    reconcile it and the entry is `needs_human`).
-- [ ] Milestone 3b: reviewer (GLM-5.3-Flash) → revise loop.
+    Baseline drift: 夜航 "Night Voyage"×10 vs glossary "Ye Hang", 复核 "review"×8, 灰名单 "gray list"×6,
+    师傅 "master/mentor". Before review the full system had 2 lint violations and 2 banned hits; after one
+    revision round each for chapters 1 and 2 it had none. Chapter 3 was approved on the first review.
+- [x] **Milestone 3b: reviewer loop.** `ChapterWorkflow` = translate → code lint + GLM review (thinking on)
+  → revise (≤3) → approved or flagged. Approval needs the reviewer's verdict *and* zero lint violations.
+  Real run: ch1 approved after 2 rounds (2 major + 7 minor → 0 major), ch2 after 2, ch3 after 1. The reviewer
+  also raised a legitimate term dispute: the glossary bans "Guanlan Data" even where the source says 观澜数据.
+  Reviews cost ~9k reasoning tokens each; `reasoning_effort: low` is the next thing to test.
 - [ ] Milestone 4: kill -9 / resume script; eval against `ref/english-reference.md`.
 - [ ] Milestone 3: all chapters in parallel + checks report.
 - [ ] Milestone 4: eval (baseline vs full system), kill -9 / resume script.
