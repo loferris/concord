@@ -55,7 +55,19 @@ export async function extractTerms(input: ExtractTermsInput): Promise<ExtractTer
     // The union is the extraction; the overlap gives a capture-recapture estimate of how many terms exist
     // and therefore of our recall.
     const call = (offset: number) => chatJson({ model: MODELS.extractor, ...prompt, schemaName: 'extraction', maxTokens: 8192, seed: attemptSeed() + offset, enableThinking: false }, ExtractionSchema);
-    const resA = await call(0);
+    const dir0 = input.incremental ? runDir(input.runId, 'glossary', 'incremental', input.incremental.chapterName) : runDir(input.runId, 'glossary');
+    // Pass A is persisted so that a retry caused by a 429 on pass B does not repeat it (Lightning's limit is
+    // time-based: a second request shortly after the first is rejected). A pause separates the passes.
+    let resA: Awaited<ReturnType<typeof call>>;
+    try {
+      resA = JSON.parse(await readText(`${dir0}/extraction.passA.json`)) as Awaited<ReturnType<typeof call>>;
+      console.log('[extract] reusing persisted pass A');
+    } catch {
+      resA = await call(0);
+      await writeJsonAtomic(`${dir0}/extraction.passA.json`, resA);
+      await recordUsage(input.runId, 'extractor', `${input.incremental?.chapterName ?? 'book'}-A`, resA.usage);
+    }
+    await new Promise((r) => setTimeout(r, 20_000));
     const resB = await call(5000);
     const known = new Set(input.incremental?.knownSources ?? []);
     const keepSingle = input.incremental ? (it: { source: string; needs_fixed_rendering: boolean }) => it.needs_fixed_rendering || known.has(it.source) : undefined;
@@ -88,13 +100,13 @@ export async function extractTerms(input: ExtractTermsInput): Promise<ExtractTer
     console.log(`[extract] capture-recapture: A=${setA.size} B=${setB.size} both=${both} union=${union.size} est.total=${captureRecapture.estimatedTotal} est.recall=${captureRecapture.estimatedRecall}`);
     const res = { usage: { ...resA.usage, prompt_tokens: resA.usage.prompt_tokens + resB.usage.prompt_tokens, completion_tokens: resA.usage.completion_tokens + resB.usage.completion_tokens } };
     const extraction = { items: Array.from(union.values()), rejected_candidates: [...resA.data.rejected_candidates, ...resB.data.rejected_candidates], dropped_by_code: dropped, capture_recapture: captureRecapture };
-    await recordUsage(input.runId, 'extractor', 'book-A', resA.usage);
+
     const dir = input.incremental ? runDir(input.runId, 'glossary', 'incremental', input.incremental.chapterName) : runDir(input.runId, 'glossary');
     const extractionPath = `${dir}/extraction.json`;
     const candidatesPath = `${dir}/candidates.json`;
     await writeJsonAtomic(candidatesPath, candidates);
     await writeJsonAtomic(extractionPath, extraction);
-    await recordUsage(input.runId, 'extractor', 'book-B', resB.usage);
+    await recordUsage(input.runId, 'extractor', `${input.incremental?.chapterName ?? 'book'}-B`, resB.usage);
     return { extractionPath, candidatesPath, candidateCount: candidates.length, itemCount: extraction.items.length, rejectedCount: extraction.rejected_candidates.length + dropped.length, captureRecapture, usage: res.usage };
   });
 }

@@ -122,6 +122,17 @@ See `docs/temporal.md` for how the workflows, retries, fallbacks and queues inte
     - Fact ledger (regex counts; total = occurrences in the reference): 3,412 accounts 3/3, 1–2 a.m. 2/2,
       72 hours 1/1, 200 million 1/1, nine years 1/1, three years 4/4, two months 1/1, ~300 1/1, 8 a.m. 3/3,
       for both baseline and full system (9/9 facts); "11 p.m." is not stated in the reference.
+- [x] **Incremental mode** (`cli add-chapter <runId> <chapter>`, `scripts/incremental-demo.sh`): chapters arrive
+  one at a time, as a serialized novel is published, and the shared glossary grows one version per chapter.
+  When chapter N arrives: tag it; extract terms from it alone; exact-match against existing sources and
+  aliases and skip what is known; for each new item one grouper call that sees the existing entities
+  ("alias of X" or "new entity"; the address-form table can veto a merge, since a wrong merge is worse than a
+  miss); debate only the new entities, with the frozen glossary and its rationales given to the proposers,
+  critic and terminologist as precedent; frozen renderings never change (only `cli resolve` can); write
+  `glossary.v{N+1}.json` and a `changelog.json` entry (chapter, new entities, new aliases, debates, precedents
+  cited, calls, cost); translate + review that chapter against the new version. `cli growth <runId>` prints
+  the growth table. Unlike batch debates, which run in parallel and cannot see each other, incremental
+  debates always see the frozen glossary, so new terms cannot collide with old ones.
 - [x] **Milestone 4a: kill -9 / resume.** `scripts/kill-resume.sh <glossaryRunId>` (live demo): starts a run,
   kills every worker process mid-model-call, shows Temporal marking the activity "Heartbeat timeout" and
   scheduling attempt 2 with no worker alive, restarts the worker, and the run completes from there.
