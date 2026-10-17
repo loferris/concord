@@ -79,12 +79,17 @@ and is read by the eval only (a test enforces it). See `docs/prompts.md` for eve
 
 ## Repository map
 
-- `src/workflows.ts` deterministic Temporal workflows: `BookWorkflow`, `DebateWorkflow`, `ChapterWorkflow`,
-  `TranslateBookWorkflow`, `AddChapterWorkflow` · `src/activities/` every model call and file write ·
-  `src/llm.ts` Crusoe client with error classification · `src/prompts.ts` prompts verbatim from `docs/prompts.md` ·
-  `src/schemas.ts` Zod output schemas · `src/extract.ts`, `src/align.ts`, `src/checks.ts`, `src/normalize.ts` pure,
-  unit-tested code checks · `src/eval.ts` + `src/report.ts` eval-only · `src/fake.ts` offline model ·
-  `scripts/` demos and benches · `results/` committed outputs of the demo runs · `data/zh/` source chapters.
+- `src/workflows.ts`: deterministic Temporal workflows (`BookWorkflow`, `DebateWorkflow`, `ChapterWorkflow`, `TranslateBookWorkflow`, `AddChapterWorkflow`)
+- `src/activities/`: every model call and every file read/write
+- `src/llm.ts`: Crusoe client with retryable vs non-retryable error classification
+- `src/prompts.ts`: agent prompts, verbatim from `docs/prompts.md`
+- `src/schemas.ts`: Zod output schema for every agent
+- `src/extract.ts`, `src/align.ts`, `src/checks.ts`, `src/normalize.ts`: pure, unit-tested code checks
+- `src/eval.ts`, `src/report.ts`: eval-only code (the only modules that read the answer key)
+- `src/fake.ts`: deterministic offline model
+- `scripts/`: demos (`kill-resume.sh`, `incremental-demo.sh`) and benches
+- `results/`: committed outputs of the demo runs
+- `data/zh/`: source chapters; `ref/`: the answer key; `docs/`: prompts, Temporal notes, Crusoe reference
 
 ## Open items
 
@@ -106,7 +111,13 @@ and is read by the eval only (a test enforces it). See `docs/prompts.md` for eve
 
 ## Built today (Oct 17, 2026)
 
-- [x] **Milestone 1**: one chapter end to end through Temporal on Crusoe, paragraph IDs preserved.
+Everything below was built between 10:45 and the 5:00 PM submission, in the order shown. It is the detailed log;
+the headline numbers above come from the runs described here.
+
+<details>
+<summary><b>Milestone log: 1 → 2a → 2b → 3 → 3b → 4a → human resolutions → incremental mode</b></summary>
+
+- **Milestone 1**: one chapter end to end through Temporal on Crusoe, paragraph IDs preserved.
   - `src/llm.ts`: OpenAI SDK against Crusoe, `maxRetries 0`, Zod `response_format`, thinking off for the
     translator, `max_tokens >= 1024`, `finish_reason=length`/empty content/bad JSON/schema → retryable;
     400/401/403/404 → non-retryable. Logs `cached_tokens` per call.
@@ -124,7 +135,7 @@ and is read by the eval only (a test enforces it). See `docs/prompts.md` for eve
     Super stays on coordination/extraction. Chapter 1: 18/18 ids, 612 prompt / ~900 completion tokens,
     `reasoning_tokens` 0. Cache: first calls report `created_cache_tokens: 512`; a repeat ~20s later
     reported `cached_tokens: 512` (83.7%). Cache lands in 512-token segments and is not instant.
-- [x] **Milestone 2a**: structure and terms. `bun run cli book data/zh/*.txt --stop-after group`, then
+- **Milestone 2a**: structure and terms. `bun run cli book data/zh/*.txt --stop-after group`, then
   `cli structure <runId>` prints the address-form table, entities with aliases, and what was kept separate.
   - Tagger (Super, thinking off) splits each paragraph into narration/speech/thought/text_message segments
     with speaker, addressee and form of address. Code verifies the joined segments equal the source
@@ -142,7 +153,7 @@ and is read by the eval only (a test enforces it). See `docs/prompts.md` for eve
     endless-whitespace loop (hit the 8,192-token cap at ~1 min/attempt; temperature and repetition
     penalty did not help). Retries use a perturbed seed, and from the 3rd attempt the tagger/grouper fall
     back to DeepSeek V4.1 Flash (`modelForAttempt`). One chapter in the real run took that path.
-- [x] **Milestone 2b**: decide and freeze. `bun run cli book data/zh/*.txt` runs tag → extract → group →
+- **Milestone 2b**: decide and freeze. `bun run cli book data/zh/*.txt` runs tag → extract → group →
   policies → one `DebateWorkflow` child per entity → `glossary.v1.json`; `cli glossary <runId>` prints it.
   - Policies (Super) run once before any term. Three blind proposers (fidelity / readability / genre, each with
     its own seed) run in parallel; identical renderings freeze as `decided_by: agreement` (raw, or after
@@ -161,7 +172,7 @@ and is read by the eval only (a test enforces it). See `docs/prompts.md` for eve
     source contains B's source, A's rendering must contain B's) re-decides only the violators with B's
     rendering as a frozen constraint and writes `glossary.v2.json`; extraction runs twice and the overlap
     gives a capture–recapture (Chapman) estimate of term recall, recorded in `extraction.json`.
-- [x] **Milestone 3**: translation against the glossary + ablation.
+- **Milestone 3**: translation against the glossary + ablation.
   - `cli book <chapters>` continues past the glossary: chapter 1 alone (warms the shared prefix), then the
     rest in parallel, then the one-prompt baseline (prompt #11, same DeepSeek model, no glossary, no ids).
     `cli translate <glossaryRunId> <chapters>` reuses a finished glossary run.
@@ -211,7 +222,18 @@ and is read by the eval only (a test enforces it). See `docs/prompts.md` for eve
     - Fact ledger (regex counts; total = occurrences in the reference): 3,412 accounts 3/3, 1–2 a.m. 2/2,
       72 hours 1/1, 200 million 1/1, nine years 1/1, three years 4/4, two months 1/1, ~300 1/1, 8 a.m. 3/3,
       for both baseline and full system (9/9 facts); "11 p.m." is not stated in the reference.
-- [x] **Incremental mode** (`cli add-chapter <runId> <chapter>`, `scripts/incremental-demo.sh`): chapters arrive
+- **Milestone 3b: reviewer loop.** `ChapterWorkflow` = translate → code lint + GLM review (thinking on)
+  → revise (≤3) → approved or flagged. Approval needs the reviewer's verdict *and* zero lint violations.
+  Real run: ch1 approved after 2 rounds (2 major + 7 minor → 0 major), ch2 after 2, ch3 after 1. The reviewer
+  also raised a legitimate term dispute: the glossary bans "Guanlan Data" even where the source says 观澜数据.
+  Reviews cost ~9k reasoning tokens each; `reasoning_effort: low` is the next thing to test.
+- **Milestone 4a: kill -9 / resume.** `scripts/kill-resume.sh <glossaryRunId>` (live demo): starts a run,
+  kills every worker process mid-model-call, shows Temporal marking the activity "Heartbeat timeout" and
+  scheduling attempt 2 with no worker alive, restarts the worker, and the run completes from there.
+- **Human resolutions.** `cli resolve <runId> <source> <rendering> [--unban v] [--same-version]` writes
+  the next glossary version with `decided_by: human` and a `resolved_from` note citing the `needs_human` flag
+  or the reviewer dispute it answers, then re-runs the nested-term and collision checks.
+- **Incremental mode** (`cli add-chapter <runId> <chapter>`, `scripts/incremental-demo.sh`): chapters arrive
   one at a time, as a serialized novel is published, and the shared glossary grows one version per chapter.
   When chapter N arrives: tag it; extract terms from it alone; exact-match against existing sources and
   aliases and skip what is known; for each new item one grouper call that sees the existing entities
@@ -248,20 +270,8 @@ and is read by the eval only (a test enforces it). See `docs/prompts.md` for eve
     陆家嘴, 浦东机场, 人工先验). Note that 8 of the 20 baseline hits are "Director Zhou", which this run's agents
     froze as "Zhou Zong" and banned; the batch run's agents chose the opposite, so that part of the baseline's
     penalty is a debatable agent decision rather than drift.
-- [x] **Milestone 4a: kill -9 / resume.** `scripts/kill-resume.sh <glossaryRunId>` (live demo): starts a run,
-  kills every worker process mid-model-call, shows Temporal marking the activity "Heartbeat timeout" and
-  scheduling attempt 2 with no worker alive, restarts the worker, and the run completes from there.
-- [x] **Human resolutions.** `cli resolve <runId> <source> <rendering> [--unban v] [--same-version]` writes
-  the next glossary version with `decided_by: human` and a `resolved_from` note citing the `needs_human` flag
-  or the reviewer dispute it answers, then re-runs the nested-term and collision checks.
-- [x] **Milestone 3b: reviewer loop.** `ChapterWorkflow` = translate → code lint + GLM review (thinking on)
-  → revise (≤3) → approved or flagged. Approval needs the reviewer's verdict *and* zero lint violations.
-  Real run: ch1 approved after 2 rounds (2 major + 7 minor → 0 major), ch2 after 2, ch3 after 1. The reviewer
-  also raised a legitimate term dispute: the glossary bans "Guanlan Data" even where the source says 观澜数据.
-  Reviews cost ~9k reasoning tokens each; `reasoning_effort: low` is the next thing to test.
-- [ ] Milestone 4: kill -9 / resume script; eval against `ref/english-reference.md`.
-- [ ] Milestone 3: all chapters in parallel + checks report.
-- [ ] Milestone 4: eval (baseline vs full system), kill -9 / resume script.
+
+</details>
 
 ## FAQ
 
