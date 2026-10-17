@@ -6,11 +6,11 @@ Conventions for every prompt:
 - **Output is a JSON schema** (Zod → `response_format`). The schemas are sketched after each prompt.
 - `{{double braces}}` are template slots.
 
-**Division of labor:** Nemotron is the shared brain (it decides what the book's words are). DeepSeek writes. GLM checks.
+**Division of labor:** Nemotron is the shared brain (it decides what the book's words are: grouping, policies, proposals, critique, final glossary). DeepSeek handles the Chinese text (annotates the source, writes the translation). GLM checks.
 
 | # | Agent | Model ID | Thinking | Why this model / why that setting |
 |---|---|---|---|---|
-| 0 | Tagger (speech/thought/narration + speaker) | `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B` | **off** | structure the source once; copy task, no reasoning needed |
+| 0 | Tagger (speech/thought/narration + speaker) | `deepseek-ai/DeepSeek-V4.1-Flash` (fallback: Nemotron 3 Super) | **off** | verbatim copy + labels over Chinese text, not a decision. Bench Oct 17, 3 chapters × 2: DeepSeek 6/6 exact in 11–15s; Super 3/6, three runs looped to the 8k cap at 2+ min, passes needed up to 10/24 paragraphs re-quoted |
 | 1 | Extractor | `nvidia/Nemotron-3.5-Lightning-30B-A3B` | **off** | cheap, 1M context: reads the whole book in one call |
 | 2 | Alias grouper | Nemotron 3 Super | **off** | judgment over contexts and speaker tags |
 | 3 | Policy setter | Nemotron 3 Super | **off** | book-wide decisions |

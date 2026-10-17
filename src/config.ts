@@ -2,6 +2,8 @@
 export const MODELS = {
   /** Output: chapter translation. Cheapest cached input in the catalog; thinking off. */
   translator: 'deepseek-ai/DeepSeek-V4.1-Flash',
+  /** Tagger: verbatim copy + labels over Chinese text. Bench Oct 17: DeepSeek 6/6 exact vs Super 3/6 (loops). */
+  tagger: 'deepseek-ai/DeepSeek-V4.1-Flash',
   /** Coordination: terminologist, reviewer, proposers. */
   smart: 'nvidia/NVIDIA-Nemotron-3-Super-120B-A12B',
   /** Extraction: reads the whole book in one call (1M ctx) and spreads load onto a third rate limit. */

@@ -52,6 +52,8 @@ export function deriveAddressForms(tagged: TaggedChapter, chapterName?: string):
   for (const p of tagged.paragraphs) {
     for (const s of p.segments) {
       if (s.type === 'narration' || !clean(s.address_form)) continue;
+      // A form equal to the addressee's own name is just the name, not a form of address worth recording.
+      if (clean(s.address_form) === clean(s.addressee)) continue;
       const speaker = s.speaker || 'unknown';
       const addressee = s.addressee || 'unknown';
       const key = `${speaker}\u0000${addressee}\u0000${s.address_form}`;
@@ -78,7 +80,7 @@ export async function tagChapter(input: TagChapterInput): Promise<TagChapterOutp
     const paragraphs = splitParagraphs(source);
     const prompt = taggerPrompt(formatParagraphs(paragraphs));
     const res = await chatJson(
-      { model: modelForAttempt(MODELS.smart), ...prompt, schemaName: 'tagging', maxTokens: Math.max(8192, source.length * 6), seed: attemptSeed(), enableThinking: false },
+      { model: modelForAttempt(MODELS.tagger, MODELS.smart), ...prompt, schemaName: 'tagging', maxTokens: Math.max(8192, source.length * 6), seed: attemptSeed(), enableThinking: false },
       TaggedChapterSchema,
     );
 

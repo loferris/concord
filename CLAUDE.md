@@ -23,6 +23,8 @@ memory (a glossary) stays current, efficient and conflict-free, and prove it wit
   - extraction: `nvidia/Nemotron-3.5-Lightning-30B-A3B` — 1M context, reads the whole book in one call;
     a third model means a third per-model rate limit.
   - reviewer: `zai-org/GLM-5.3-Flash` — thinking ON (bench: off missed 2/3 planted defects). Third family.
+  - tagger: `deepseek-ai/DeepSeek-V4.1-Flash` (fallback Super from attempt 3). Bench: DeepSeek 6/6 exact,
+    Super 3/6 with whitespace loops. Nemotron still makes every glossary decision.
   - Per-agent thinking on/off is the table in docs/prompts.md. Nemotron Super + thinking + json_schema does
     not terminate on Crusoe (measured); keep Nemotron thinking off.
   - `src/llm.ts#thinkingKwargs` picks the right switch per model family.

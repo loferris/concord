@@ -8,6 +8,7 @@ const tagged = {
     { id: 'p009', segments: [{ type: 'speech' as const, text: '“小鹿。”', speaker: '沈澈', addressee: '陆楠', address_form: '小鹿' }] },
     { id: 'p017', segments: [{ type: 'speech' as const, text: '“沈哥。”', speaker: '陆楠', addressee: '沈澈', address_form: '沈哥' }] },
     { id: 'p020', segments: [{ type: 'speech' as const, text: '“嗯。”', speaker: 'none', addressee: 'N/A', address_form: 'none' }] },
+    { id: 'p021', segments: [{ type: 'speech' as const, text: '“沈澈。”', speaker: '周总', addressee: '沈澈', address_form: '沈澈' }] },
   ],
 };
 
