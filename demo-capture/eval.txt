@@ -1,44 +1,61 @@
+$ bunx tsx src/cli.ts eval inc-demo-3 --ref
 
-== Ablation — run 20261017-213120-j30v (glossary glossary.v3.json from 20261017-205002-c4sg, 13 terms)
+== Ablation — run inc-demo-3 (glossary glossary.v1.json from inc-demo-3, 10 terms)
   metric                                 baseline (1 prompt)  full, before review    full, after review
-  term consistency (chosen / chosen+banned) 78.4%                99.2%                  99.2%
-  chosen-rendering hits                  91                   122                    122
-  banned-variant hits (terms affected)   25 (6)               1 (1)                  1 (1)
-  mean distinct renderings per term      1.46                 1.38                   1.38
-  paragraph term coverage                n/a (no paragraph ids) 109/109 (100.0%)       109/109 (100.0%)
+  term consistency (chosen / chosen+banned) 79.5%                100.0%                 100.0%
+  chosen-rendering hits                  58                   86                     86
+  banned-variant hits (terms affected)   15 (2)               0 (0)                  0 (0)
+  mean distinct renderings per term      1.13                 1.20                   1.20
+  paragraph term coverage                n/a (no paragraph ids) 81/81 (100.0%)         81/81 (100.0%)
   leftover CJK runs                      0                    0                      0
-  translation cost (USD)                 $0.0023              $0.0050                + $0.0248 review/revise
-  translation cached-token rate          87.6%                39.9%                  60.5%
-  model calls                            3                    3                      5 reviews, 2 revisions
-  glossary build (USD, calls)            —                    $0.0530 (51)           
-  total cost (USD)                       $0.0023              $0.0580                $0.0828
+  translation cost (USD)                 $0.0033              $0.0075                + $0.0393 review/revise
+  translation cached-token rate          63.4%                11.4%                  35.0%
+  model calls                            4                    4                      7 reviews, 3 revisions
+  glossary build (USD, calls)            —                    $0.0783 (84)           
+  total cost (USD)                       $0.0033              $0.0858                $0.1251
 
-  banned variants — baseline: 夜航: Night Voyage×10 | 灰名单: gray list×6 | 师傅: master×1, mentor×3 | 沈澈: Shen×3 | 白名单: white list×1 | 复核: check×1
-  banned variants — before review: 师傅: mentor×1
-  banned variants — after review: 师傅: mentor×1
+  banned variants — baseline: 周总: Director Zhou×11 | 陆楠: XiaoLu×4
+  banned variants — before review: none
+  banned variants — after review: none
+  banned variants excluded as ambiguous (also another entry's rendering): 陆楠 "Xiao-lu" (= 陆楠)
+  Note: banned-variant counting is chapter-scoped (a variant for T counts only in chapters where T occurs) and text-level, so a few hits may still be misattributed; use --hits to list them.
   Note: consistency counts the chosen rendering vs KNOWN banned variants only; the after-review column is enforced by the loop (approval requires zero lint violations), so the before-review column and the baseline drift are the independent evidence.
 
 == Reference eval (ref/english-reference.md; read by the eval only)
-  glossary v1: 10/16 reference terms match; not in our glossary: 黑名单, 人工先验, 风控负责人, 陆家嘴, 浦东机场, 看到不该看的，就是我们的工作。
-    ✗ 沈哥: ours "Brother Shen" (agreement (alias of 沈澈)) vs reference "Shen" / "boss"
-    ✗ 阿澈: ours "Ah Che" (agreement (alias of 沈澈)) vs reference "Che"
+  glossary v1 (used by this run): 5/11 reference terms match; not in our glossary: 阿澈, 顾衡, 师父, 师傅, 观澜数据, 人工先验, 清野生活, 风控负责人, 浦东机场, 模型异常, 看到不该看的，就是我们的工作。
+    ✗ 沈哥: ours "Shen Ge" (agreement (alias of 沈澈)) vs reference "Shen" / "boss"
     ✗ 小鹿: ours "Xiao Lu" (agreement (alias of 陆楠)) vs reference "Lu" / "kid"
+    ✗ 周总: ours "Zhou Zong" (agreement) vs reference "Director Zhou" / "Ms. Zhou"
     ✗ 夜航: ours "Ye Hang" (agreement) vs reference "Night Flight"
-    ✗ 复核组: ours "Audit Team" (agreement) vs reference "Review Team"
-    ✗ 灰名单: ours "graylist" (agreement) vs reference "grey list"
-  glossary v2: 10/16 reference terms match; not in our glossary: 黑名单, 人工先验, 风控负责人, 陆家嘴, 浦东机场, 看到不该看的，就是我们的工作。
-    ✗ 沈哥: ours "Brother Shen" (agreement (alias of 沈澈)) vs reference "Shen" / "boss"
-    ✗ 阿澈: ours "Ah Che" (agreement (alias of 沈澈)) vs reference "Che"
+    ✗ 复核组: ours "the Review Group" (agreement) vs reference "Review Team"
+    ✗ 灰名单: ours "gray list" (agreement) vs reference "grey list"
+  glossary v2: 8/15 reference terms match; not in our glossary: 阿澈, 师傅, 观澜数据, 人工先验, 风控负责人, 浦东机场, 看到不该看的，就是我们的工作。
+    ✗ 沈哥: ours "Shen Ge" (agreement (alias of 沈澈)) vs reference "Shen" / "boss"
     ✗ 小鹿: ours "Xiao Lu" (agreement (alias of 陆楠)) vs reference "Lu" / "kid"
+    ✗ 周总: ours "Zhou Zong" (agreement) vs reference "Director Zhou" / "Ms. Zhou"
+    ✗ 师父: ours "Shi Fu" (terminologist) vs reference "mentor" / "Shifu"
     ✗ 夜航: ours "Ye Hang" (agreement) vs reference "Night Flight"
-    ✗ 复核组: ours "Audit Team" (terminologist) vs reference "Review Team"
-    ✗ 灰名单: ours "graylist" (agreement) vs reference "grey list"
-  glossary v3 (used by this run): 11/16 reference terms match — includes 3 human resolution(s), made by the reference's author; not in our glossary: 黑名单, 人工先验, 风控负责人, 陆家嘴, 浦东机场, 看到不该看的，就是我们的工作。
-    ✗ 沈哥: ours "Brother Shen" (agreement (alias of 沈澈)) vs reference "Shen" / "boss"
-    ✗ 阿澈: ours "Ah Che" (agreement (alias of 沈澈)) vs reference "Che"
+    ✗ 复核组: ours "the Review Group" (agreement) vs reference "Review Team"
+    ✗ 灰名单: ours "gray list" (agreement) vs reference "grey list"
+  glossary v3: 10/19 reference terms match; not in our glossary: 观澜数据, 风控负责人, 看到不该看的，就是我们的工作。
+    ✗ 沈哥: ours "Shen Ge" (agreement (alias of 沈澈)) vs reference "Shen" / "boss"
     ✗ 小鹿: ours "Xiao Lu" (agreement (alias of 陆楠)) vs reference "Lu" / "kid"
+    ✗ 周总: ours "Zhou Zong" (agreement) vs reference "Director Zhou" / "Ms. Zhou"
+    ✗ 师父: ours "Shi Fu" (terminologist) vs reference "mentor" / "Shifu"
+    ✗ 师傅: ours "Shi Fu" (agreement) vs reference "driver" / "sir"
     ✗ 夜航: ours "Ye Hang" (agreement) vs reference "Night Flight"
-    ✗ 灰名单: ours "graylist" (agreement) vs reference "grey list"
+    ✗ 复核组: ours "the Review Group" (agreement) vs reference "Review Team"
+    ✗ 灰名单: ours "gray list" (agreement) vs reference "grey list"
+    ✗ 人工先验: ours "Ren Gong Xian Yan" (agreement) vs reference "manual prior"
+  glossary v4: 11/19 reference terms match — includes 1 human resolution(s), made by the reference's author; not in our glossary: 观澜数据, 风控负责人, 看到不该看的，就是我们的工作。
+    ✗ 沈哥: ours "Shen Ge" (agreement (alias of 沈澈)) vs reference "Shen" / "boss"
+    ✗ 小鹿: ours "Xiao Lu" (agreement (alias of 陆楠)) vs reference "Lu" / "kid"
+    ✗ 周总: ours "Zhou Zong" (agreement) vs reference "Director Zhou" / "Ms. Zhou"
+    ✗ 师父: ours "Shi Fu" (terminologist) vs reference "mentor" / "Shifu"
+    ✗ 夜航: ours "Ye Hang" (agreement) vs reference "Night Flight"
+    ✗ 复核组: ours "the Review Group" (agreement) vs reference "Review Team"
+    ✗ 灰名单: ours "gray list" (agreement) vs reference "grey list"
+    ✗ 人工先验: ours "Ren Gong Xian Yan" (agreement) vs reference "manual prior"
 
   Fact ledger (occurrences; total = count in the reference translation)
   fact                 reference  baseline   full

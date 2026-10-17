@@ -3,7 +3,8 @@
 // A candidate equal to another entry's rendering/alias rendering is dropped; a banned variant shared by
 // two entries is kept but marked ambiguous. Matching is case-insensitive on word boundaries, longest
 // candidate first, and each span of text is counted once.
-// Usage: bunx tsx scripts/baseline-drift.ts <runId> [glossaryVersion]
+// Usage: bunx tsx scripts/baseline-drift.ts <runId> [glossaryVersion] [--full]
+//   --full reads the full system's chapters/NN/translation.en.txt instead of baseline/NN.en.txt.
 import { readFile, readdir } from 'node:fs/promises';
 
 interface Entry { source: string; rendering: string; alias_renderings?: { source: string; rendering: string }[]; banned?: string[] }
@@ -12,7 +13,8 @@ const norm = (s: string) => s.toLowerCase();
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 async function main() {
-  const [runId, v] = process.argv.slice(2);
+  const full = process.argv.includes('--full');
+  const [runId, v] = process.argv.slice(2).filter((a) => a !== '--full');
   const gdir = `run-data/${runId}/glossary`;
   const version = v ?? String(Math.max(...(await readdir(gdir)).map((f) => /^glossary\.v(\d+)\.json$/.exec(f)?.[1]).filter(Boolean).map(Number)));
   const entries = (JSON.parse(await readFile(`${gdir}/glossary.v${version}.json`, 'utf8')) as { entries: Entry[] }).entries;
@@ -47,7 +49,10 @@ async function main() {
   const res = texts.map((t) => ({ t, re: new RegExp(`(?<![\\p{L}\\p{N}])${esc(t).replace(/ /g, '\\s+')}(?![\\p{L}\\p{N}])`, 'giu') }));
 
   const bdir = `run-data/${runId}/baseline`;
-  const chapters = (await readdir(bdir)).filter((f) => f.endsWith('.en.txt')).sort().map((f) => f.slice(0, 2));
+  const chapters = full
+    ? (await readdir(`run-data/${runId}/chapters`)).sort()
+    : (await readdir(bdir)).filter((f) => f.endsWith('.en.txt')).sort().map((f) => f.slice(0, 2));
+  const textPath = (ch: string) => (full ? `run-data/${runId}/chapters/${ch}/translation.en.txt` : `${bdir}/${ch}.en.txt`);
   // hits[term][chapter][surface text] = line numbers
   const hits = new Map<string, Map<string, Map<string, number[]>>>();
   const zhCount = new Map<string, Map<string, number>>();
@@ -58,7 +63,7 @@ async function main() {
       m.set(ch, zh.split(e.source).length - 1);
       zhCount.set(e.source, m);
     }
-    const lines = (await readFile(`${bdir}/${ch}.en.txt`, 'utf8')).split('\n');
+    const lines = (await readFile(textPath(ch), 'utf8')).split('\n');
     lines.forEach((line, i) => {
       const used = new Array(line.length).fill(false);
       for (const { t, re } of res) {
@@ -79,22 +84,32 @@ async function main() {
     });
   }
 
-  console.log(`== Baseline renderings per term — ${runId}, glossary v${version}, chapters ${chapters.join(' ')}`);
+  console.log(`== ${full ? 'Full-system' : 'Baseline'} renderings per term — ${runId}, glossary v${version}, chapters ${chapters.join(' ')}`);
   const drifting: string[] = [];
+  const flagged: string[] = [];
+  const unverified: string[] = [];
   for (const e of entries) {
     const perCh = hits.get(e.source) ?? new Map();
     const zc = chapters.map((ch) => `${ch}:${zhCount.get(e.source)!.get(ch)}`).join(' ');
     console.log(`\n${e.source} → ${e.rendering}   (source occurrences ${zc})`);
     const forms = new Set<string>();
+    let offGlossary = false;
     for (const ch of chapters) {
       const perText = perCh.get(ch);
+      const src = zhCount.get(e.source)!.get(ch)!;
+      const sanctioned = perText ? [...perText.keys()].some((l) => !l.includes('[banned')) : false;
+      if (src > 0 && !sanctioned) { offGlossary = true; unverified.push(`${e.source} ch${ch}`); }
       if (!perText) { console.log(`  ${ch}  —`); continue; }
+      if ([...perText.keys()].some((l) => l.includes('[banned'))) offGlossary = true;
       const parts = [...perText].map(([label, ln]) => { forms.add(norm(label)); return `${label} ×${ln.length} (L${ln.join(',')})`; });
       console.log(`  ${ch}  ${parts.join(' | ')}`);
     }
     if (forms.size > 1) drifting.push(e.source);
+    if (offGlossary) flagged.push(e.source);
   }
-  console.log(`\n== Terms with more than one baseline rendering: ${drifting.join(', ') || 'none'}`);
+  console.log(`\n== Terms with more than one rendering form (case-folded, aliases count as forms): ${drifting.join(', ') || 'none'}`);
+  console.log(`== Terms with a banned form, or source present but no rendering/alias hit: ${flagged.join(', ') || 'none'}`);
+  if (unverified.length) console.log(`== Source present but no rendering/alias hit: ${unverified.join(', ')}`);
   if (dropped.length) console.log(`== Candidates dropped (another entry's rendering): ${dropped.join('; ')}`);
 }
 

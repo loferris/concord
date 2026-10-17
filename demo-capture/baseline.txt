@@ -1,4 +1,5 @@
-run-data/20261017-213120-j30v/baseline/03.en.txt
-1:Chapter 3: The Master
-2-
-3-At four in the afternoon, all three thousand four hundred and twelve accounts had been restored to the whitelist. Shen Che's report was two lines long: Cause, model anomaly; Action, restored.
+$ grep -n -i "mentor\|master\|shifu" run-data/inc-demo-3/baseline/02.en.txt run-data/inc-demo-3/baseline/03.en.txt
+run-data/inc-demo-3/baseline/03.en.txt:1:Chapter 3: The Master
+run-data/inc-demo-3/baseline/03.en.txt:35:"Shifu." Shen Che took the suitcase. "What you saw three years ago — was it the same thing?"
+run-data/inc-demo-3/baseline/02.en.txt:41:"Shen Che, you know how your mentor left Guanlan back then, don't you?"
+run-data/inc-demo-3/baseline/02.en.txt:43:Shen Che's mentor was Gu Heng, the first head of the review team, who had left the company three years ago "for personal reasons." When Shen Che first joined, Gu Heng had only mentored him for two months.
