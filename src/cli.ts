@@ -33,7 +33,7 @@ async function start(chapterPath: string, runIdArg?: string) {
   const chapterName = basename(chapterPath, extname(chapterPath));
   const workflowId = `chapter-${runId}-${chapterName}`;
   console.log(`[cli] runId=${runId} workflowId=${workflowId}`);
-  const handle = await client.workflow.start('ChapterWorkflow', { taskQueue: TASK_QUEUES.workflows, workflowId, args: [{ runId, chapterPath }] });
+  const handle = await client.workflow.start('ChapterWorkflow', { taskQueue: TASK_QUEUES.workflows, workflowId, args: [{ runId, chapterPath, maxReviewRounds: 0 }] });
   const result = (await handle.result()) as ChapterWorkflowResult;
   console.log('\n[cli] result:');
   console.log(JSON.stringify(result, null, 2));
@@ -71,7 +71,7 @@ async function translateBook(glossaryRunId: string, chapterPaths: string[]) {
   const handle = await client.workflow.start('TranslateBookWorkflow', { taskQueue: TASK_QUEUES.workflows, workflowId: `translate-${runId}`, args: [{ runId, glossaryRunId, chapterPaths }] });
   const result = (await handle.result()) as TranslationPhaseResult & { runId: string };
   console.log(`[cli] done in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
-  console.log(JSON.stringify({ ...result, checks: undefined }, null, 2));
+  for (const c of result.chapters) console.log(`  ch ${c.chapterName}: ${c.status} after ${c.rounds.length} review round(s): ${c.rounds.map((r) => `r${r.round} ${r.verdict} [crit ${r.issues.critical} maj ${r.issues.major} min ${r.issues.minor}; lint banned ${r.lint.banned} missing ${r.lint.missing} cjk ${r.lint.cjk}; disputes ${r.termDisputes}]`).join(' → ')}${c.newTermCount ? `; new_terms ${c.newTermCount}` : ''}`);
   await connection.close();
   await evalRun(runId, glossaryRunId);
 }
@@ -113,6 +113,8 @@ async function evalRun(runId: string, glossaryRunId?: string) {
   const usage = await readUsage(runId);
   const glossaryUsage = glossaryRunId && glossaryRunId !== runId ? await readUsage(glossaryRunId) : usage.filter((r) => !['translator', 'baseline'].includes(r.role));
   const trans = cost(usage.filter((r) => r.role === 'translator'));
+  const rev = cost(usage.filter((r) => r.role === 'reviewer'));
+  const revise = cost(usage.filter((r) => r.role === 'reviser'));
   const bl = cost(usage.filter((r) => r.role === 'baseline'));
   const gl = cost(glossaryUsage.filter((r) => !['translator', 'baseline'].includes(r.role)));
   const pct = (a: number, b: number) => (b ? `${((100 * a) / b).toFixed(1)}%` : 'n/a');
@@ -131,8 +133,9 @@ async function evalRun(runId: string, glossaryRunId?: string) {
   row('translation cost (USD)', `$${trans.usd.toFixed(4)}`, `$${bl.usd.toFixed(4)}`);
   row('translation cached-token rate', pct(trans.cached, trans.prompt), pct(bl.cached, bl.prompt));
   row('translation tokens (prompt / completion)', `${trans.prompt} / ${trans.completion}`, `${bl.prompt} / ${bl.completion}`);
+  row('review + revise cost (USD, calls)', `$${(rev.usd + revise.usd).toFixed(4)} (${rev.calls} reviews, ${revise.calls} revisions)`, '—');
   row('glossary build cost (USD, calls)', `$${gl.usd.toFixed(4)} (${gl.calls})`, '—');
-  row('total cost (USD)', `$${(trans.usd + gl.usd).toFixed(4)}`, `$${bl.usd.toFixed(4)}`);
+  row('total cost (USD)', `$${(trans.usd + rev.usd + revise.usd + gl.usd).toFixed(4)}`, `$${bl.usd.toFixed(4)}`);
   const worst = (st: typeof full.stats) => st.filter((x) => x.bannedHits.length).sort((x, y) => y.bannedHits.reduce((a, c) => a + c.count, 0) - x.bannedHits.reduce((a, c) => a + c.count, 0)).slice(0, 6);
   console.log(`\n  baseline banned variants: ${worst(base.stats).map((x) => `${x.source}: ${x.bannedHits.map((h) => `${h.variant}×${h.count}`).join(', ')}`).join(' | ') || 'none'}`);
   console.log(`  full-system banned variants: ${worst(full.stats).map((x) => `${x.source}: ${x.bannedHits.map((h) => `${h.variant}×${h.count}`).join(', ')}`).join(' | ') || 'none'}`);

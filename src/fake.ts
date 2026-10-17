@@ -127,7 +127,8 @@ export async function fakeChatJson(req: ChatJsonRequest): Promise<ChatJsonRaw> {
   switch (req.schemaName) {
     case 'translation': {
       // Tagged input: strip the XML-style tags so the fake output has no tags, like the real translator.
-      const paras = blocks(req.user).map((b) => ({ id: b.id, text: `(fake-en) ${b.text.replace(/<[^>]+>/g, '')}` }));
+      const revised = /A reviewer flagged these issues/.test(req.user);
+      const paras = blocks(req.user.split('\n\nA reviewer flagged')[0]).map((b) => ({ id: b.id, text: `(fake-en${revised ? ', revised' : ''}) ${b.text.replace(/<[^>]+>/g, '')}` }));
       value = { paragraphs: paras, new_terms: [] };
       break;
     }
@@ -152,6 +153,14 @@ export async function fakeChatJson(req: ChatJsonRequest): Promise<ChatJsonRaw> {
     case 'terminologist':
       value = fakeDecide(req.user, req.system);
       break;
+    case 'review': {
+      // Round 1: ask for one major fix on the first paragraph; after that approve.
+      const alreadyRevised = /"round":\s*[1-9]/.test(req.user) || req.user.includes('(fake-en, revised)');
+      value = alreadyRevised
+        ? { verdict: 'approve', issues: [], term_disputes: [] }
+        : { verdict: 'revise', issues: [{ paragraph_id: 'p001', category: 'fluency', severity: 'major', quote: '(fake-en)', suggestion: 'tighten' }], term_disputes: [] };
+      break;
+    }
     default:
       throw new Error(`fake model: no handler for schema "${req.schemaName}"`);
   }

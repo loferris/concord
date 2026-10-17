@@ -14,6 +14,8 @@ export interface TranslateChapterInput {
   taggedPath?: string;
   glossaryPath?: string;
   policiesPath?: string;
+  /** Revision mode: issues to fix (prompt #7 revision block); the previous translation is overwritten and kept as translation.rN.json. */
+  revision?: { round: number; issues: string };
 }
 
 export interface TranslateChapterOutput {
@@ -46,7 +48,7 @@ export async function translateChapter(input: TranslateChapterInput): Promise<Tr
     } else {
       chapterBlock = formatParagraphs(paragraphs);
     }
-    const prompt = translatorPrompt(STYLE_BRIEF, policies, glossary, chapterBlock);
+    const prompt = translatorPrompt(STYLE_BRIEF, policies, glossary, chapterBlock, input.revision?.issues);
     const maxTokens = Math.max(2048, Math.ceil(source.length * 1.5) + 512);
     const res = await chatJson({ model: MODELS.translator, ...prompt, schemaName: 'translation', maxTokens, seed: attemptSeed(), enableThinking: false }, TranslationSchema);
 
@@ -69,9 +71,17 @@ export async function translateChapter(input: TranslateChapterInput): Promise<Tr
     const dir = runDir(input.runId, 'chapters', chapterName);
     const translationPath = `${dir}/translation.json`;
     const englishPath = `${dir}/translation.en.txt`;
-    await writeJsonAtomic(translationPath, { chapter: chapterName, source: input.chapterPath, glossary: input.glossaryPath ?? null, paragraphs: ordered, new_terms: res.data.new_terms });
+    if (input.revision) {
+      // Keep the previous version for the audit trail before overwriting.
+      try {
+        await writeAtomic(`${dir}/translation.r${input.revision.round - 1}.json`, await readText(translationPath));
+      } catch {
+        /* first revision without a prior file */
+      }
+    }
+    await writeJsonAtomic(translationPath, { chapter: chapterName, source: input.chapterPath, glossary: input.glossaryPath ?? null, round: input.revision?.round ?? 0, paragraphs: ordered, new_terms: res.data.new_terms });
     await writeAtomic(englishPath, ordered.map((p) => p.text).join('\n\n') + '\n');
-    await recordUsage(input.runId, 'translator', chapterName, res.usage);
+    await recordUsage(input.runId, input.revision ? 'reviser' : 'translator', `${chapterName}${input.revision ? `.r${input.revision.round}` : ''}`, res.usage);
     return { chapterName, paragraphCount: ordered.length, translationPath, englishPath, newTermCount: res.data.new_terms.length, usage: res.usage };
   });
 }

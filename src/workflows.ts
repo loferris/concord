@@ -18,21 +18,44 @@ const local = proxyActivities<typeof activities>({ taskQueue: TASK_QUEUES.smart,
 export interface ChapterWorkflowInput {
   runId: string;
   chapterPath: string;
+  taggedPath?: string;
   glossaryPath?: string;
+  policiesPath?: string;
+  /** 0 = translate only (milestone 1 path); otherwise max review→revise rounds. */
+  maxReviewRounds?: number;
 }
 export interface ChapterWorkflowResult {
   chapterName: string;
   paragraphCount: number;
   translationPath: string;
   englishPath: string;
+  newTermCount: number;
   usage: Usage;
-  status: 'translated';
+  rounds: { round: number; verdict: 'approve' | 'revise'; issues: { critical: number; major: number; minor: number }; lint: { banned: number; missing: number; cjk: number }; termDisputes: number }[];
+  status: 'translated' | 'approved' | 'flagged';
 }
 
-/** Milestone 1: translate only. Later: translate -> term lint -> review -> revise (<=3) -> approve or flag. */
+const REVIEW_QUEUE_ROUNDS_DEFAULT = 3;
+
+/** translate → term lint + review → revise (≤ maxReviewRounds) → approve or flag. */
 export async function ChapterWorkflow(input: ChapterWorkflowInput): Promise<ChapterWorkflowResult> {
-  const t = await fast.translateChapter(input);
-  return { ...t, status: 'translated' };
+  const maxRounds = input.maxReviewRounds ?? REVIEW_QUEUE_ROUNDS_DEFAULT;
+  let t = await fast.translateChapter({ runId: input.runId, chapterPath: input.chapterPath, taggedPath: input.taggedPath, glossaryPath: input.glossaryPath, policiesPath: input.policiesPath });
+  const rounds: ChapterWorkflowResult['rounds'] = [];
+  if (maxRounds === 0) return { ...t, rounds, status: 'translated' };
+  let status: ChapterWorkflowResult['status'] = 'flagged';
+  for (let round = 1; round <= maxRounds; round++) {
+    const r = await smart.reviewChapter({ runId: input.runId, chapterPath: input.chapterPath, translationPath: t.translationPath, taggedPath: input.taggedPath, glossaryPath: input.glossaryPath, round });
+    rounds.push({ round, verdict: r.verdict, issues: r.issues, lint: r.lint, termDisputes: r.termDisputes });
+    const lintTotal = r.lint.banned + r.lint.missing + r.lint.cjk;
+    if (r.verdict === 'approve' && lintTotal === 0) {
+      status = 'approved';
+      break;
+    }
+    if (round === maxRounds) break; // out of rounds: flagged
+    t = await fast.translateChapter({ runId: input.runId, chapterPath: input.chapterPath, taggedPath: input.taggedPath, glossaryPath: input.glossaryPath, policiesPath: input.policiesPath, revision: { round, issues: r.revisionIssues } });
+  }
+  return { ...t, rounds, status };
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -121,7 +144,7 @@ export interface BookWorkflowInput {
 
 export interface TranslationPhaseResult {
   glossaryUsed: string;
-  chapters: { chapterName: string; paragraphCount: number; newTermCount: number; translationPath: string; englishPath: string }[];
+  chapters: { chapterName: string; paragraphCount: number; newTermCount: number; translationPath: string; englishPath: string; status: ChapterWorkflowResult['status']; rounds: ChapterWorkflowResult['rounds'] }[];
   baseline: { chapterName: string; englishPath: string }[];
   checks: { full: import('./checks').CheckSummary; baseline: import('./checks').CheckSummary; fullPath: string; baselinePath: string };
 }
@@ -130,9 +153,14 @@ export interface TranslationPhaseResult {
  * Milestone 3: translate the first chapter alone (warms the shared prefix cache), then the rest in parallel;
  * run the one-prompt baseline on every chapter; run the code checks on both.
  */
-async function translationPhase(runId: string, chapterPaths: string[], taggedPaths: string[], glossaryPath: string, policiesPath: string): Promise<TranslationPhaseResult> {
+async function translationPhase(runId: string, chapterPaths: string[], taggedPaths: string[], glossaryPath: string, policiesPath: string, maxReviewRounds = REVIEW_QUEUE_ROUNDS_DEFAULT): Promise<TranslationPhaseResult> {
   const [first, ...rest] = chapterPaths;
-  const tr = (i: number) => fast.translateChapter({ runId, chapterPath: chapterPaths[i], taggedPath: taggedPaths[i], glossaryPath, policiesPath });
+  const tr = (i: number) =>
+    executeChild(ChapterWorkflow, {
+      workflowId: `chapter-${runId}-${chapterPaths[i].split('/').pop()!.replace(/\.[^.]+$/, '')}`,
+      taskQueue: TASK_QUEUES.workflows,
+      args: [{ runId, chapterPath: chapterPaths[i], taggedPath: taggedPaths[i], glossaryPath, policiesPath, maxReviewRounds }],
+    });
   const firstOut = await tr(0);
   const [restOut, baseline] = await Promise.all([
     Promise.all(rest.map((_, i) => tr(i + 1))),
@@ -146,7 +174,7 @@ async function translationPhase(runId: string, chapterPaths: string[], taggedPat
   ]);
   return {
     glossaryUsed: glossaryPath,
-    chapters: chapters.map((c) => ({ chapterName: c.chapterName, paragraphCount: c.paragraphCount, newTermCount: c.newTermCount, translationPath: c.translationPath, englishPath: c.englishPath })),
+    chapters: chapters.map((c) => ({ chapterName: c.chapterName, paragraphCount: c.paragraphCount, newTermCount: c.newTermCount, translationPath: c.translationPath, englishPath: c.englishPath, status: c.status, rounds: c.rounds })),
     baseline: baseline.map((b) => ({ chapterName: b.chapterName, englishPath: b.englishPath })),
     checks: { full: full.summary, baseline: base.summary, fullPath: full.checksPath, baselinePath: base.checksPath },
   };
@@ -158,13 +186,14 @@ export interface TranslateBookWorkflowInput {
   glossaryRunId: string;
   chapterPaths: string[];
   glossaryVersion?: number;
+  maxReviewRounds?: number;
 }
 /** Reuse an existing glossary run: translation + baseline + checks only. */
 export async function TranslateBookWorkflow(input: TranslateBookWorkflowInput): Promise<TranslationPhaseResult & { runId: string; glossaryRunId: string }> {
   const base = `run-data/${input.glossaryRunId}`;
   const names = input.chapterPaths.map((p) => p.split('/').pop()!.replace(/\.[^.]+$/, ''));
   const taggedPaths = names.map((n) => `${base}/chapters/${n}/tagged.json`);
-  const res = await translationPhase(input.runId, input.chapterPaths, taggedPaths, `${base}/glossary/glossary.v${input.glossaryVersion ?? 2}.json`, `${base}/glossary/policies.json`);
+  const res = await translationPhase(input.runId, input.chapterPaths, taggedPaths, `${base}/glossary/glossary.v${input.glossaryVersion ?? 2}.json`, `${base}/glossary/policies.json`, input.maxReviewRounds);
   return { ...res, runId: input.runId, glossaryRunId: input.glossaryRunId };
 }
 export interface BookWorkflowResult {

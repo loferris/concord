@@ -19,6 +19,8 @@ readable `translation.en.txt` and `translate.usage.json`. Workflow history only 
 
 `FAKE_LLM=1` forces the offline fake model even when a key is set.
 
+See `docs/temporal.md` for how the workflows, retries, fallbacks and queues interact (decision chains, collisions).
+
 ## Built today (Oct 17, 2026)
 
 - [x] **Milestone 1**: one chapter end to end through Temporal on Crusoe, paragraph IDs preserved.

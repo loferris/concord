@@ -11,3 +11,5 @@ export type { GroupAliasesInput, GroupAliasesOutput } from './group';
 export { setPolicies, propose, critique, decide, writeGlossary, findNestedViolations, readGlossaryEntries } from './glossary';
 export type { SetPoliciesInput, SetPoliciesOutput, ProposeInput, ProposeOutput, CritiqueInput, DecideInput, WriteGlossaryInput } from './glossary';
 export { listEntities, listEntityAliases } from './list';
+export { reviewChapter } from './review';
+export type { ReviewChapterInput, ReviewChapterOutput } from './review';

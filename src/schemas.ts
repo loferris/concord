@@ -131,6 +131,22 @@ export const TerminologistSchema = z.object({
 });
 export type TerminologistDecision = z.infer<typeof TerminologistSchema>;
 
+// ---- 8. Reviewer ----------------------------------------------------------------------------
+export const ReviewSchema = z.object({
+  verdict: z.enum(['approve', 'revise']).describe('approve if there are no critical or major issues, otherwise revise'),
+  issues: z.array(
+    z.object({
+      paragraph_id: z.string(),
+      category: z.enum(['accuracy', 'fluency', 'register']),
+      severity: z.enum(['critical', 'major', 'minor']),
+      quote: z.string().describe('The problem text, quoted from the translation'),
+      suggestion: z.string(),
+    }),
+  ),
+  term_disputes: z.array(z.object({ source: z.string(), current_rendering: z.string(), proposed: z.string(), reason: z.string() })),
+});
+export type Review = z.infer<typeof ReviewSchema>;
+
 // ---- Glossary (code-side, written by BookWorkflow) ------------------------------------------
 export const GlossaryEntrySchema = z.object({
   source: z.string(),

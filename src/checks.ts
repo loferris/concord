@@ -72,14 +72,31 @@ function countVariants(hay: string, variants: string[]): Map<string, number> {
   }
   return counts;
 }
-function countOccurrences(hay: string, needle: string): number {
-  return needle ? (hay.match(wordRe(needle)) ?? []).length : 0;
+
+
+/** Every chosen rendering in the glossary (all entries), so banned-variant counting never hits legitimate text. */
+function allRenderings(entries: GlossaryLike[]): string[] {
+  return Array.from(new Set(entries.flatMap((e) => [e.rendering, ...e.alias_renderings.map((a) => a.rendering)]).filter(Boolean)));
 }
-function countCJK(hay: string, needle: string): number {
-  return needle ? hay.split(needle).length - 1 : 0;
+/** Every source string in the glossary, so a short source (复核) is not counted inside a longer one (复核组). */
+function allSources(entries: GlossaryLike[]): string[] {
+  return Array.from(new Set(entries.flatMap((e) => [e.source, ...e.alias_renderings.map((a) => a.source)]).filter(Boolean)));
+}
+/** Count CJK sources longest-first with masking (same idea as countVariants, no word boundaries). */
+function countSources(hay: string, sources: string[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  let work = hay;
+  for (const v of [...new Set(sources.filter(Boolean))].sort((a, b) => b.length - a.length)) {
+    const parts = work.split(v);
+    counts.set(v, parts.length - 1);
+    work = parts.join('\u0000');
+  }
+  return counts;
 }
 
 export function termDistribution(entries: GlossaryLike[], chapters: ChapterText[]): TermStat[] {
+  const everyRendering = allRenderings(entries);
+  const everySource = allSources(entries);
   return entries.map((e) => {
     const sources = [e.source, ...e.alias_renderings.map((a) => a.source)];
     const renderings = Array.from(new Set([e.rendering, ...e.alias_renderings.map((a) => a.rendering)].filter(Boolean)));
@@ -89,26 +106,29 @@ export function termDistribution(entries: GlossaryLike[], chapters: ChapterText[
     let covered = 0;
     let total = 0;
     let anyAligned = false;
-    const bannedList = e.banned.filter((b) => !renderings.some((r) => r.toLowerCase() === b.toLowerCase()));
+    const bannedList = e.banned.filter((b) => !everyRendering.some((r) => r.toLowerCase() === b.toLowerCase()));
+    // Mask every glossary rendering (all entries) before counting, so "audit" inside "Audit Team" is not a hit.
+    const variants = [...everyRendering, ...bannedList];
     for (const ch of chapters) {
-      const counts = countVariants(ch.en, [...renderings, ...bannedList]);
+      const counts = countVariants(ch.en, variants);
       for (const r of renderings) renderingHits += counts.get(r) ?? 0;
       for (const b of bannedList) banned.set(b, (banned.get(b) ?? 0) + (counts.get(b) ?? 0));
       if (ch.paragraphs) {
         anyAligned = true;
         for (const p of ch.paragraphs) {
-          const n = sources.reduce((a, s) => a + countCJK(p.zh, s), 0);
+          const sc = countSources(p.zh, everySource);
+          const n = sources.reduce((a, s) => a + (sc.get(s) ?? 0), 0);
           if (!n) continue;
           sourceHits += n;
           total++;
-          const c = countVariants(p.en, [...renderings, ...bannedList]);
+          const c = countVariants(p.en, variants);
           if (renderings.some((r) => (c.get(r) ?? 0) > 0)) covered++;
         }
       }
     }
     const bannedHits = Array.from(banned.entries()).filter(([, c]) => c > 0).map(([variant, count]) => ({ variant, count }));
     const allText = chapters.map((ch) => ch.en).join('\n');
-    const used = countVariants(allText, [...renderings, ...bannedList]);
+    const used = countVariants(allText, variants);
     const variantsUsed = [...renderings, ...bannedList].filter((v) => (used.get(v) ?? 0) > 0);
     return { source: e.source, sourceHits, renderingHits, bannedHits, variantsUsed, coverage: anyAligned ? { covered, total } : undefined };
   });
@@ -173,4 +193,33 @@ export function summarize(stats: TermStat[], leaks: CJKLeak[], collisions: numbe
     collisions,
     nestedViolations: nested,
   };
+}
+
+// ---- Per-paragraph term lint (feeds the reviewer and the revision prompt) --------------------------
+export interface LintViolation {
+  paragraphId: string;
+  kind: 'banned_variant' | 'missing_rendering' | 'leftover_cjk';
+  source?: string;
+  detail: string;
+}
+export function lintParagraphs(entries: GlossaryLike[], paragraphs: { id: string; zh: string; en: string }[]): LintViolation[] {
+  const out: LintViolation[] = [];
+  const everyRendering = allRenderings(entries);
+  const everySource = allSources(entries);
+  for (const p of paragraphs) {
+    const sc = countSources(p.zh, everySource);
+    for (const e of entries) {
+      const renderings = [e.rendering, ...e.alias_renderings.map((a) => a.rendering)].filter(Boolean);
+      const bannedList = e.banned.filter((b) => !everyRendering.some((r) => r.toLowerCase() === b.toLowerCase()));
+      const c = countVariants(p.en, [...everyRendering, ...bannedList]);
+      for (const b of bannedList) if ((c.get(b) ?? 0) > 0) out.push({ paragraphId: p.id, kind: 'banned_variant', source: e.source, detail: `uses banned "${b}" for ${e.source}; glossary rendering is "${e.rendering}"` });
+      const inZh = [e.source, ...e.alias_renderings.map((a) => a.source)].reduce((a, s) => a + (sc.get(s) ?? 0), 0);
+      if (inZh > 0 && !renderings.some((r) => (c.get(r) ?? 0) > 0)) out.push({ paragraphId: p.id, kind: 'missing_rendering', source: e.source, detail: `${e.source} occurs in the source but "${e.rendering}" (or an alias rendering) is not in the translation` });
+    }
+    for (const m of p.en.matchAll(CJK_RUN)) out.push({ paragraphId: p.id, kind: 'leftover_cjk', detail: `Chinese characters left in the English: ${m[0]}` });
+  }
+  return out;
+}
+export function formatLint(v: LintViolation[]): string {
+  return v.length ? v.map((x) => `${x.paragraphId}: ${x.detail}`).join('\n') : 'none';
 }
