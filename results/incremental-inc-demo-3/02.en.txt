@@ -1,0 +1,47 @@
+Chapter 2: The Eight O'Clock Small Conference Room
+
+The small conference room had only six seats. Zhou Zong sat in the one closest to the door, an untouched Americano in front of her.
+
+"Three thousand four hundred and twelve." She flipped to the last page of the spreadsheet Shen Che had sent. "What do you make of it?"
+
+"Two possibilities," Shen Che said. "One, some version of Ye Hang had a problem during its automatic training in the early morning and misclassified a batch of users onto the gray list. The other is that someone is using Ye Hang's name to alter data."
+
+"Which do you lean toward?"
+
+"The second. When a model has problems, the errors are random. These three thousand-plus accounts are not random." He pulled up a chart. "All of them reported the same merchant in the past month."
+
+Zhou Zong said nothing. She had been at Guanlan for nine years, working her way up from data annotation to head of risk control. Shen Che had rarely seen her pause this long.
+
+"What's this merchant called?"
+
+"The backend only shows an ID number. But I checked, and this ID corresponds to an advertising client we signed last quarter, called 'Qingye Life.'"
+
+Zhou Zong rotated her coffee cup half a turn.
+
+"Shen Che," she said, "you're the head of the Review Group. The Review Group's job is to review labels, not to investigate advertising clients."
+
+"I know."
+
+"Then you should know that this matter ends here. Those three thousand accounts—I'll have the tech team restore them all to the whitelist this afternoon. You write a report, and for the cause, write 'model anomaly.'"
+
+Shen Che didn't agree right away. He thought of the question Lu Nan had asked in the early morning.
+
+"Zhou Zong, if it's a model anomaly, then why did Ye Hang only change labels between one and two in the morning?"
+
+"Because that's the window for automatic training."
+
+"Then why did it only change the labels of people who reported Qingye Life?"
+
+Zhou Zong glanced at him. It was a brief glance, but Shen Che understood it: she had thought of it too, and she had thought of it earlier than he had.
+
+"It's eight twenty," Zhou Zong said, standing up. "Have the report to me before you leave. As for Xiao Lu, tell her to stop pulling logs."
+
+She walked to the door, then stopped again.
+
+"Shen Che, you know how your Shi Fu left Guanlan back then, don't you?"
+
+Shen Che's Shi Fu was named Gu Heng, the first head of the Review Group, who had left the company three years ago "for personal reasons." When Shen Che first joined, Gu Heng had only mentored him for two months.
+
+"I know," Shen Che said.
+
+"Good." Zhou Zong closed the door behind her.

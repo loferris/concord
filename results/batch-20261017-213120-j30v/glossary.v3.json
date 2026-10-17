@@ -1,0 +1,355 @@
+{
+  "version": 3,
+  "runId": "20261017-205002-c4sg",
+  "entries": [
+    {
+      "source": "白名单",
+      "type": "term",
+      "rendering": "whitelist",
+      "aliases": [],
+      "alias_renderings": [],
+      "banned": [
+        "white list",
+        "white-name list"
+      ],
+      "context_rules": [],
+      "decided_by": "agreement",
+      "rationale": "The term 白名单 is a fixed technical term in the domain of recommendation systems and user management, directly contrasted with 黑名单 and 灰名单 in the source text. The English 'whitelist' is the standard, unambiguous equivalent in this technical context. The source uses it as a noun referring to a list of approved accounts; 'whitelist' functions identically in English technical jargon. Consistency with the paired term 黑名单 (which should render as 'blacklist') and the context of automated tagging makes this the most accurate and reader-friendly choice.",
+      "confidence": 0.99,
+      "needs_human": false,
+      "needs_human_reason": null,
+      "code_notes": []
+    },
+    {
+      "source": "复核",
+      "type": "term",
+      "rendering": "review",
+      "aliases": [],
+      "alias_renderings": [],
+      "banned": [
+        "check",
+        "audit",
+        "double-check",
+        "recheck"
+      ],
+      "context_rules": [],
+      "decided_by": "human",
+      "rationale": "复核 denotes a formal, procedural, team-based process of manually reviewing and correcting algorithmic tagging errors in a recommendation system, operating under strict timelines (e.g., 72-hour gray-list resolution). 'Verification' best captures this technical, institutionalized sense—implying confirmation against a standard with accountability—while avoiding the informality of 'check' or 'double-check', the breadth of 'review', and the financial/compliance connotations of 'audit'. It functions consistently as both noun (verification team) and verb (to verify) and aligns with domain jargon in data operations.",
+      "confidence": 0.95,
+      "needs_human": false,
+      "needs_human_reason": null,
+      "code_notes": [
+        "human: \"verification\" → \"review\""
+      ],
+      "resolved_from": "no open flag or dispute; editorial decision"
+    },
+    {
+      "source": "复核组",
+      "type": "org",
+      "rendering": "Review Team",
+      "aliases": [],
+      "alias_renderings": [],
+      "banned": [
+        "Review Group",
+        "Verification Team",
+        "Check Team",
+        "Audit Group",
+        "Check Group",
+        "Recheck Team"
+      ],
+      "context_rules": [],
+      "decided_by": "human",
+      "rationale": "复核组 is a fixed organizational unit name in a tech company context, responsible for correcting mislabeled data from the recommendation system. '复核' means to re-examine or audit for accuracy, and '组' means team or group. 'Audit Team' best captures the formal, procedural, and ongoing nature of their work in data quality control, aligning with the contexts of reviewing labels, whitelists/blacklists, and gray-list accounts. It is consistent with corporate jargon in data governance and avoids the vagueness of 'Review' or 'Verification' (which could imply ad-hoc checks) or the incorrect implication of hierarchy in 'Group'. 'Audit Team' is the standard term used in similar tech/org contexts for such a function. [code: nested-term constraint not met: 复核 → verification]",
+      "confidence": 0.95,
+      "needs_human": false,
+      "needs_human_reason": null,
+      "code_notes": [
+        "v2: re-decided under nested-term constraint (复核 → verification); was \"Audit Team\"",
+        "nested-term constraint not met after retries; needs_human set",
+        "human: \"Audit Team\" → \"Review Team\""
+      ],
+      "resolved_from": "needs_human flag on 复核组: 复核组 is a fixed organizational unit name in a tech company context, responsible for correcting mislabeled data from the recommendation system. '复核' means to re-examine or audit for accuracy, and '组' means team or group. 'Audit Team' best captures the formal, procedural, and ongoing nature of their work in data quality control, aligning with the contexts of reviewing labels, whitelists/blacklists, and gray-list accounts. It is consistent with corporate jargon in data governance and avoids the vagueness of 'Review' or 'Verification' (which could imply ad-hoc checks) or the incorrect implication of hierarchy in 'Group'. 'Audit Team' is the standard term used in similar tech/org contexts for such a function. [code: nested-term constraint not met: 复核 → verification]"
+    },
+    {
+      "source": "顾衡",
+      "type": "person",
+      "rendering": "Gu Heng",
+      "aliases": [
+        {
+          "source": "师父",
+          "kind": "title",
+          "used_by": "沈澈"
+        }
+      ],
+      "alias_renderings": [
+        {
+          "source": "师父",
+          "rendering": "Shifu"
+        }
+      ],
+      "banned": [
+        "Gu Heng's master",
+        "Master Gu",
+        "Teacher Gu",
+        "Master Heng",
+        "Gu Heng, the master",
+        "Gu Heng (master)",
+        "Gu Heng (Shifu)",
+        "Gu Heng, his teacher"
+      ],
+      "context_rules": [],
+      "decided_by": "agreement",
+      "rationale": "The name 顾衡 follows pinyin surname-first convention: Gu Heng. The alias 师父 is a recurring term of address used by 沈澈 to refer to his master, and per policy, forms of address like this should retain the original pinyin form. 'Shifu' is the standard romanization for 师父 in English contexts, especially in martial arts or master-disciple relationships, and carries the correct connotation of respect and instructional authority. Banned options like 'Gu Heng's master' or 'Master Gu' violate the policy of retaining pinyin forms for recurring address terms and introduce unnecessary translation or Western title structures that distort the original relationship dynamic. The narration and speech contexts confirm this is a personal, recurring master-disciple bond, not a formal title.",
+      "confidence": 1,
+      "needs_human": false,
+      "needs_human_reason": null,
+      "code_notes": []
+    },
+    {
+      "source": "观澜",
+      "type": "place",
+      "rendering": "Guanlan",
+      "aliases": [],
+      "alias_renderings": [],
+      "banned": [
+        "Guan Lan",
+        "Guan-lan",
+        "Viewing Ripple"
+      ],
+      "context_rules": [],
+      "decided_by": "human",
+      "rationale": "Guanlan is a proper place name (company/organization) and must be rendered in pinyin without spaces or tone marks, per policy for invented system/product names and place names. The contexts show it used as a company name (e.g., '观澜数据的办公室', '在观澜做了九年'), so it remains untranslated. 'Guanlan Data' is banned because it adds an unnecessary descriptor not present in the original and violates consistency—'观澜' alone is the name. Other variants like 'Guan Lan' or 'Guan-lan' introduce spaces or hyphens not allowed in pinyin rendering of proper nouns. 'Viewing Ripple' is a literal translation banned because the name is treated as a proper noun, not a descriptive term, per policy on invented names.",
+      "confidence": 1,
+      "needs_human": false,
+      "needs_human_reason": null,
+      "code_notes": [
+        "human: \"Guanlan\" → \"Guanlan\"; unbanned \"Guanlan Data\"; 观澜数据 renders as Guanlan Data; bare 观澜 stays Guanlan"
+      ],
+      "resolved_from": "reviewer dispute in run 20261017-212434-jbrh ch 01 review.r1.json: 观澜数据 Guanlan Data → Guanlan: The source compound in p003 is the full company name 观澜数据 (Guanlan + 数据 'Data'), so 'Guanlan Data' may reflect the literal name rather than a term-choice error. Requesting confirmation that 观澜数据 shoul"
+    },
+    {
+      "source": "灰名单",
+      "type": "term",
+      "rendering": "graylist",
+      "aliases": [],
+      "alias_renderings": [],
+      "banned": [
+        "grey list",
+        "gray list",
+        "grey-list",
+        "gray-list",
+        "ambiguous list",
+        "uncertain list"
+      ],
+      "context_rules": [],
+      "decided_by": "agreement",
+      "rationale": "The term 灰名单 is a fixed technical term in the context of recommendation systems, forming a pair with 白名单 (whitelist) and 黑名单 (blacklist). Following the policy for invented system and product names, and consistent with the established translation of 白名单 as 'whitelist' (per policy #5: US spelling, hyphenated compound modifiers before nouns — though here it's a closed compound), 灰名单 must be rendered as 'graylist' to maintain terminological consistency. The narration in [01.p005] explicitly defines it as a system category: '灰名单是“说不清楚”', confirming its role as a technical label. Using 'graylist' (one word, US spelling) aligns with 'whitelist' and 'blacklist' as standard compound terms in tech English. Variants like 'grey list' or 'gray list' (two words) or hyphenated forms break consistency with the established whitelist/blacklist pattern and are therefore banned. Semantic translations like 'ambiguous list' lose the technical fixedness and are inappropriate for a recurring system term.",
+      "confidence": 0.95,
+      "needs_human": false,
+      "needs_human_reason": null,
+      "code_notes": []
+    },
+    {
+      "source": "陆楠",
+      "type": "person",
+      "rendering": "Lu Nan",
+      "aliases": [
+        {
+          "source": "小鹿",
+          "kind": "nickname",
+          "used_by": "沈澈"
+        }
+      ],
+      "alias_renderings": [
+        {
+          "source": "小鹿",
+          "rendering": "Xiao Lu"
+        }
+      ],
+      "banned": [
+        "Lu Na",
+        "Lu Nan (as 'Lu Nan' with space)",
+        "Xiao Lu (as 'Xiao-lu' with hyphen)",
+        "Little Deer",
+        "Deer",
+        "Lu Nan (as 'LuNan')",
+        "Lu Nan (as 'Lu-Nan')",
+        "Xiao Lu (as 'XiaoLu')",
+        "Xiao Lu (as 'Xiao-lu')",
+        "Xiao Lu (as 'Little Deer')",
+        "Xiao Lu (as 'Deer')",
+        "Xiao Lu (as 'Lu Xiao')",
+        "Lu Nan (with space)",
+        "Lu-Nan",
+        "Lu Nan (with tone marks)",
+        "Lu Nan (reversed order)",
+        "Lu Nan (with hyphen)",
+        "Xiao Lu (with space)",
+        "Xiao-Lu",
+        "Xiao Lu (with tone marks)",
+        "Xiao Lu (reversed order)",
+        "Xiao Lu (with hyphen)",
+        "Lu Xiao",
+        "Nan Lu",
+        "Xiao Nan"
+      ],
+      "context_rules": [],
+      "decided_by": "agreement",
+      "rationale": "Personal names: Use pinyin with surname first, no tone marks, no spaces between syllables. '陆楠' → 'Lu Nan'. Forms of address and nicknames: Keep original pinyin forms (surname + kinship/affectionate marker) for recurring terms; translate meaning only if opaque or used once. '小鹿' is a recurring nickname used by 沈澈, so it should be rendered as pinyin: 'Xiao Lu'. Banned forms include incorrect tone marks, spaces, hyphenation, or literal translations that lose the nickname's function as a term of address.",
+      "confidence": 1,
+      "needs_human": false,
+      "needs_human_reason": null,
+      "code_notes": []
+    },
+    {
+      "source": "模型",
+      "type": "term",
+      "rendering": "model",
+      "aliases": [],
+      "alias_renderings": [],
+      "banned": [],
+      "context_rules": [],
+      "decided_by": "agreement",
+      "rationale": "The term '模型' in this context refers to a technical system used in recommendation algorithms, specifically a machine learning model. It is consistently used as a domain term in AI/tech contexts, and translating it as 'model' preserves both accuracy and convention in English technical discourse. The narration explicitly contrasts it with a person ('夜航是一个模型，不是一个人'), reinforcing its non-human, algorithmic nature. No aliases are present, and no alternative rendering is needed or advisable. Banning is unnecessary as the term is unambiguous in this context.",
+      "confidence": 1,
+      "needs_human": false,
+      "needs_human_reason": null,
+      "code_notes": []
+    },
+    {
+      "source": "清野生活",
+      "type": "org",
+      "rendering": "Qingye Life",
+      "aliases": [],
+      "alias_renderings": [],
+      "banned": [
+        "Qingye Living",
+        "Pure Wild Life",
+        "Qingye",
+        "Qingye Wild Life",
+        "Qing Ye Life",
+        "QingyeLiving",
+        "Qingye Life (Pure Wild Life)"
+      ],
+      "context_rules": [],
+      "decided_by": "agreement",
+      "rationale": "The term '清野生活' is a fixed product/client name referenced as an entity. According to policy #4, invented system and product names should retain original pinyin with a brief descriptive gloss in parentheses on first mention only. '清野' (Qingye) is a proper name element (likely a brand or product name), and '生活' (Life) is descriptive. The full rendering 'Qingye Life' preserves the brand-like structure while making the meaning accessible. Alternatives like 'Qingye Living' or 'Pure Wild Life' introduce unintended connotations or inaccuracies ('Living' implies ongoing action, 'Pure Wild' misrepresents '清野' as a descriptive phrase rather than a proper name). 'Qingye' alone omits the descriptive component essential to the full name. The gloss 'Life' is retained as part of the fixed product name, consistent with how such compounds are treated in branding (e.g., 'WeChat', 'Alipay'). First use should be 'Qingye Life (Pure Wild Life)' if gloss is needed, but since the policy says 'add a brief descriptive gloss in parentheses on first mention only', and 'Life' is already a direct translation of 生活, the base rendering 'Qingye Life' suffices for consistency. However, given that this is a fixed product name and not a descriptive phrase, the pinyin + direct translation of the morpheme is appropriate. No aliasing occurs, and the term is used consistently across contexts as a client/product name.",
+      "confidence": 1,
+      "needs_human": false,
+      "needs_human_reason": null,
+      "code_notes": []
+    },
+    {
+      "source": "沈澈",
+      "type": "person",
+      "rendering": "Shen Che",
+      "aliases": [
+        {
+          "source": "沈哥",
+          "kind": "address",
+          "used_by": "陆楠"
+        },
+        {
+          "source": "阿澈",
+          "kind": "address",
+          "used_by": "顾衡"
+        }
+      ],
+      "alias_renderings": [
+        {
+          "source": "沈哥",
+          "rendering": "Brother Shen"
+        },
+        {
+          "source": "阿澈",
+          "rendering": "Ah Che"
+        }
+      ],
+      "banned": [
+        "Shen Che (with tone marks)",
+        "Shen Che (with space)",
+        "Brother Shen Che",
+        "Ah Che (as 'Ah-Che' with hyphen)",
+        "Ah Che (as 'Ache')",
+        "Shen Ge",
+        "A Che",
+        "Shen Che (with space: Shen Che)",
+        "Ah-Che",
+        "Shen",
+        "Che Shen",
+        "Shen-che"
+      ],
+      "context_rules": [],
+      "decided_by": "agreement",
+      "rationale": "Personal names must use pinyin with surname first, no tone marks, no spaces: 沈澈 → Shen Che. Forms of address: 沈哥 is a recurring term of address used by 陆楠, so it is rendered as 'Brother Shen' per policy (surname + kinship marker). 阿澈 is a recurring affectionate form used by 顾衡, where '阿' is a familiar prefix and '澈' is the given name; this is rendered as 'Ah Che' to preserve the pinyin form and the affectionate tone, consistent with how such prefixes are treated in transliteration (e.g., 阿宝 → Ah Bao). No translation is applied to the address forms as they are not opaque and are used repeatedly. Banned entries include incorrect punctuation, tone marks, spacing, or hybrid forms that violate policy.",
+      "confidence": 1,
+      "needs_human": false,
+      "needs_human_reason": null,
+      "code_notes": []
+    },
+    {
+      "source": "师傅",
+      "type": "person",
+      "rendering": "driver",
+      "aliases": [],
+      "alias_renderings": [],
+      "banned": [
+        "master",
+        "mentor",
+        "teacher",
+        "Sifu"
+      ],
+      "context_rules": [],
+      "decided_by": "agreement",
+      "rationale": "The term '师傅' here refers to a taxi or ride-hailing driver, as evidenced by the context: the speaker (沈澈) addresses the person as '司机师傅' (driver master), asks to go to Pudong Airport, and the person responds from the rearview mirror, confirming their role as a vehicle operator. This usage is distinct from '师父' (shīfù), which denotes a master-apprentice relationship in martial arts, crafts, or spiritual training. In modern Chinese, '师傅' is commonly used as a respectful term for skilled workers like drivers, chefs, or repair technicians. Translating it as 'driver' accurately reflects the occupational role and register in this context. 'Master', 'mentor', or 'teacher' would incorrectly imply a hierarchical or instructional relationship, which is absent here and contradicted by the evidence that this entry is explicitly separated from '师父'. The rendering must remain consistent throughout the book whenever '师傅' refers to a tradesperson or service worker in similar contexts.",
+      "confidence": 1,
+      "needs_human": false,
+      "needs_human_reason": null,
+      "code_notes": [
+        "banned \"Shifu\" removed: it is the rendering of 顾衡"
+      ]
+    },
+    {
+      "source": "夜航",
+      "type": "product",
+      "rendering": "Ye Hang",
+      "aliases": [],
+      "alias_renderings": [],
+      "banned": [
+        "Night Voyage",
+        "Night Hang",
+        "YeHang",
+        "Ye-hang",
+        "Night Voyage System"
+      ],
+      "context_rules": [],
+      "decided_by": "agreement",
+      "rationale": "Policy 4: Invented system and product names: Keep original pinyin for system/product names; add a brief descriptive gloss in parentheses on first mention only. The term 夜航 is explicitly identified as a product (the company's recommendation system) and appears as a quoted key term. It must remain consistent. Therefore, the correct rendering is the pinyin 'Ye Hang' (surname-style pinyin, no tone marks, no spaces between syllables). On first mention in the text, a gloss such as '(Night Voyage)' may be added, but the core term to be used throughout is 'Ye Hang'. Banned variants include literal translations ('Night Voyage'), incorrect spacing ('Night Hang'), or fused forms ('YeHang') that violate pinyin formatting rules.",
+      "confidence": 1,
+      "needs_human": false,
+      "needs_human_reason": null,
+      "code_notes": []
+    },
+    {
+      "source": "周总",
+      "type": "person",
+      "rendering": "Director Zhou",
+      "aliases": [],
+      "alias_renderings": [],
+      "banned": [
+        "Zhou Zong",
+        "Zhou Boss",
+        "Zhou General",
+        "Chief Zhou",
+        "Boss Zhou"
+      ],
+      "context_rules": [],
+      "decided_by": "agreement",
+      "rationale": "周总 is a title/name hybrid where '周' is the surname and '总' is a shortened form of '总经理' (General Manager) or similar executive title. According to policy #3, descriptive titles should be translated, and proper titles should be romanized on first use with translation in parentheses, then used thereafter. However, '周总' functions as a fixed form of address in the workplace, akin to 'Director Zhou' or 'Manager Zhou'. Translating '总' as 'Director' conveys the executive role accurately and naturally in English. Using pinyin like 'Zhou Zong' would be opaque to English readers and violates the policy of translating descriptive titles. 'Zhou Boss' is inaccurate in register and not idiomatic in English workplace contexts. Therefore, 'Director Zhou' is the correct and consistent rendering.",
+      "confidence": 1,
+      "needs_human": false,
+      "needs_human_reason": null,
+      "code_notes": []
+    }
+  ]
+}

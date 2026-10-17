@@ -1,0 +1,35 @@
+Chapter One: Gray List
+
+By the time Shen Che refreshed the backend for the third time, the record was still there.
+
+At 1:17 a.m., only three people from the Review Group were left in the Guanlan Data office. Outside the window were the lights of Lujiazui; inside, the glow of monitors. Neither kind of light was particularly warm.
+
+"Shen Ge, look at this." Lu Nan slid her chair over. On the screen was a user profile. "This account was on the whitelist yesterday. Today it moved itself to the gray list. Nobody touched it."
+
+That was exactly what the Review Group handled: the company's recommendation system, Ye Hang, tagged two hundred million users every day. When it tagged someone wrong, someone had to change it back. The whitelist was normal users, the blacklist was bots, and the gray list was "can't say for sure." By the rules, accounts on the gray list had to be manually reviewed within seventy-two hours.
+
+"The system changed it itself?" Shen Che asked.
+
+"That's what the log says." Lu Nan clicked open a line of record. "Operator: Ye Hang."
+
+Shen Che stared at those two words for a long time. Ye Hang was a model, not a person. A model could change tags, but a model didn't sign its own name.
+
+"Xiao Lu, pull all the records from the past week where the operator is 'Ye Hang.'"
+
+Lu Nan paused. She'd been at the company six months, and Shen Che rarely called her Xiao Lu. Usually he used her full name, or didn't call her anything at all—just pushed a document in front of her.
+
+"All of them?"
+
+"All of them."
+
+Twenty minutes later, the spreadsheet was ready: three thousand four hundred and twelve entries, all changed from whitelist to gray list, all between one and two in the morning.
+
+Shen Che sent the spreadsheet to Zhou Zong, then added one line after the message: Can we talk for ten minutes tomorrow morning?
+
+Zhou Zong's reply popped up almost instantly, as if she hadn't been asleep either: "Eight o'clock. Small conference room."
+
+Shen Che shut off his screen, and half the office went dark at once. It suddenly occurred to him that those three thousand–plus accounts were all real people. Some of them would wake up tomorrow morning to find their Ye Hang homepage had turned strange, filled with recommendations they couldn't understand, with no idea why.
+
+"Shen Ge," Lu Nan said quietly in the dark, "did we just see something we shouldn't have?"
+
+"We're the Review Group," Shen Che said. "Seeing things we shouldn't is our job."

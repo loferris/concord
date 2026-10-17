@@ -2,24 +2,80 @@
 
 An agent team that first agrees on a glossary (its shared brain), then translates a Chinese novel into
 English consistently. Temporal orchestrates the agents; models run on Crusoe Managed Inference.
+Built in one day at the Crusoe × Cerebral Valley Recursive Agents Hackathon (Oct 17, 2026), problem statement
+**Shared Brain**.
+
+**Nemotron decides. DeepSeek writes. GLM checks.** Every glossary decision (grouping, policies, three blind
+proposals, critique, final ruling) is made by Nemotron; DeepSeek handles the Chinese text (tagging, translation);
+GLM, a third model family, reviews so the writer never grades itself. Code verifies every model output and
+Temporal makes the whole run durable: kill the worker mid-call and it resumes.
+
+| role | model | thinking |
+|---|---|---|
+| tagger (structure the source), translator, baseline | `deepseek-ai/DeepSeek-V4.1-Flash` | off |
+| extractor (whole book, 1M ctx) | `nvidia/Nemotron-3.5-Lightning-30B-A3B` | off |
+| alias grouper, policies, 3 proposers, critic, terminologist | `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B` | off |
+| reviewer | `zai-org/GLM-5.3-Flash` | on |
+
+## Headline result
+
+Same DeepSeek writer in every column; glossary of 13 terms; 3 chapters (`results/batch-20261017-213120-j30v/`):
+
+| | one-prompt baseline | full system, before review | full system, after review |
+|---|---|---|---|
+| term consistency (chosen vs known banned variants) | 78.4% | 99.2% | 99.2% |
+| banned-variant hits | 25 across 6 terms | 1 | 1 |
+| paragraph term coverage | n/a | 109/109 | 109/109 |
+| total cost | $0.0023 | $0.058 | $0.083 |
+
+Incremental mode (chapters arrive one at a time, the glossary grows v1 → v2 → v3, `results/incremental-inc-demo-3/`):
+10 → 14 → 19 entities; 阿澈 attached as an alias of 沈澈 in v3; 师傅 kept separate from 师父. Details and caveats
+under *Built today* below; `results/*/report.html` are the self-contained reports.
 
 ## Run
 
 ```bash
 bun install
-cp .env.example .env            # put CRUSOE_API_KEY in .env (single quotes). Unset -> deterministic fake model.
-# data/zh/01..03.txt is the source; ref/english-reference.md is the answer key and is read only by `eval`.
+cp .env.example .env            # CRUSOE_API_KEY in single quotes. Unset -> deterministic fake model (offline).
 bun run temporal                # Temporal dev server (separate terminal)
-bun run worker                  # one process, three task queues: workflows, fast, smart
-bun run cli start data/zh/01.txt
+bun run worker                  # one process, three task queues: workflows, fast, smart (run via tsx/Node)
+bun run test && bun run typecheck
 ```
 
-Output lands in `run-data/<runId>/chapters/<chapter>/translation.json` (`{paragraphs:[{id,text}]}`) plus a
-readable `translation.en.txt` and `translate.usage.json`. Workflow history only carries paths and token counts.
+Reproduce the demos (each prints its own tables; outputs land in `run-data/<runId>/`):
 
-`FAKE_LLM=1` forces the offline fake model even when a key is set.
+```bash
+bun run cli book data/zh/01.txt data/zh/02.txt data/zh/03.txt   # batch: glossary v1/v2 + translate + review + ablation
+bun run cli resolve <runId> 复核组 "Review Team"                   # a human answers a needs_human flag -> glossary.v3.json
+bun run cli translate <glossaryRunId> data/zh/*.txt               # translate+review against the latest glossary version
+bun run cli eval <runId> <glossaryRunId> --ref                    # 3-column ablation + reference eval
+bun run cli report <runId> <glossaryRunId>                        # run-data/<runId>/report.html
+bun run demo:kill-resume <glossaryRunId>                          # durability: kill -9 mid-call, resume
+bun run demo:incremental                                          # ch1 -> v1, ch2 -> v2, ch3 -> v3, growth table
+```
 
-See `docs/temporal.md` for how the workflows, retries, fallbacks and queues interact (decision chains, collisions).
+`FAKE_LLM=1` forces the offline fake model even when a key is set. `ref/english-reference.md` is the answer key
+and is read by the eval only (a test enforces it). See `docs/prompts.md` for every agent prompt and
+`docs/temporal.md` for how the workflows, retries, fallbacks and queues interact.
+
+## Repository map
+
+- `src/workflows.ts` deterministic Temporal workflows: `BookWorkflow`, `DebateWorkflow`, `ChapterWorkflow`,
+  `TranslateBookWorkflow`, `AddChapterWorkflow` · `src/activities/` every model call and file write ·
+  `src/llm.ts` Crusoe client with error classification · `src/prompts.ts` prompts verbatim from `docs/prompts.md` ·
+  `src/schemas.ts` Zod output schemas · `src/extract.ts`, `src/align.ts`, `src/checks.ts`, `src/normalize.ts` pure,
+  unit-tested code checks · `src/eval.ts` + `src/report.ts` eval-only · `src/fake.ts` offline model ·
+  `scripts/` demos and benches · `results/` committed outputs of the demo runs · `data/zh/` source chapters.
+
+## Open items
+
+- `inc-demo-3` glossary v3 has one `needs_human` entry: 师傅 was proposed as "Shi Fu", colliding with the frozen
+  师父. `cli resolve inc-demo-3 师傅 driver` would clear it (the reference agrees with "driver").
+- The attempt-counter model fallback cannot tell a 429 storm from a model loop; carrying the last failure type in
+  heartbeat details would fix it (`docs/temporal.md`).
+- Reviews cost ~9k reasoning tokens each; `reasoning_effort: low` on GLM is untested.
+- Capture–recapture recall came out degenerate (second extraction pass ⊂ first) on the batch run.
+- Per-item grouper calls in incremental mode grow with glossary size.
 
 ## Built today (Oct 17, 2026)
 

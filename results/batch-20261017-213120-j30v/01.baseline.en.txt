@@ -1,0 +1,35 @@
+Chapter 1: The Gray List
+
+By the time Shen Che refreshed the backend for the third time, the entry was still there.
+
+At 1:17 a.m., only three people from the review team remained in the Guanlan Data office. Outside the window were the lights of Lujiazui; inside, the glow of monitors. Neither kind of light was particularly warm.
+
+"Shen, take a look at this." Lu Nan slid her chair over, a user profile on her screen. "This account was on the whitelist yesterday. Today it moved itself to the gray list. No one touched it."
+
+This was exactly what the review team handled: the company's recommendation system, Night Voyage, tagged two hundred million users every day. When it got a tag wrong, someone had to correct it. The whitelist was for normal users, the blacklist for bots, and the gray list for "can't be explained." By the rules, accounts on the gray list had to be manually reviewed within seventy-two hours.
+
+"The system changed it on its own?" Shen Che asked.
+
+"That's what the log says." Lu Nan opened a record. "Operator: Night Voyage."
+
+Shen Che stared at those two words for a long time. Night Voyage was a model, not a person. A model could change tags, but a model couldn't sign its own name.
+
+"Xiaolu, pull all records from the past week where the operator is 'Night Voyage.'"
+
+Lu Nan blinked. In her six months at the company, Shen Che had rarely called her Xiaolu. He usually used her full name, or didn't call her anything at all—just pushed a document across the desk.
+
+"All of them?"
+
+"All of them."
+
+Twenty minutes later, the spreadsheet was ready: three thousand four hundred and twelve entries, all changed from the whitelist to the gray list, all occurring between one and two in the morning.
+
+Shen Che sent the spreadsheet to Director Zhou, then added a message: Can we talk for ten minutes tomorrow morning?
+
+Director Zhou's reply popped up almost instantly, as if she hadn't been asleep either: Eight o'clock. Small conference room.
+
+Shen Che shut off his screen, and half the office went dark. He suddenly realized that those three thousand–plus accounts belonged to real people. Some of them would wake up tomorrow morning to find their Night Voyage homepage had turned strange, flooded with recommendations they couldn't understand—and they wouldn't know why.
+
+"Shen," Lu Nan said quietly in the dark, "did we just see something we weren't supposed to see?"
+
+"We're the review team," Shen Che said. "Seeing things we're not supposed to see is our job."

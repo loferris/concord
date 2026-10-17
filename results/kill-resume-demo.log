@@ -1,0 +1,58 @@
+
+▶ 1/6  Starting a worker
+  worker pid 141094, backend: model backend: crusoe
+
+▶ 2/6  Starting a translate run against glossary 20261017-205002-c4sg (detached)
+  [cli] runId=20261017-212434-jbrh glossaryRunId=20261017-205002-c4sg chapters=data/zh/01.txt, data/zh/02.txt, data/zh/03.txt
+  [cli] started workflowId=translate-20261017-212434-jbrh (detached). Wait with: cli wait 20261017-212434-jbrh 20261017-205002-c4sg
+
+▶ 3/6  Waiting until chapter 1 has a model call in flight
+    pending activity: translateChapter attempt 1, state STARTED, last heartbeat -
+  letting the model call get going (2s)
+
+▶ 4/6  kill -9 the worker — the HTTP call to Crusoe dies with it
+  no worker process is running (verified with pgrep)
+
+▶      Temporal's view while nothing is running:
+  translate-20261017-212434-jbrh: RUNNING, 9 history events
+    pending child: chapter-20261017-212434-jbrh-01
+  chapter-20261017-212434-jbrh-01: RUNNING, 5 history events
+    pending activity: translateChapter attempt 1, state STARTED, last heartbeat -
+  the activity's heartbeat stops; after heartbeatTimeout (15s) Temporal will schedule attempt 2 — for whoever polls next
+  waiting past the 15s heartbeat timeout with no worker (20s)
+  chapter-20261017-212434-jbrh-01: RUNNING, 5 history events
+    pending activity: translateChapter attempt 2, state SCHEDULED, last heartbeat -, last failure: activity Heartbeat timeout
+
+▶ 5/6  Restarting the worker — it picks up the pending attempt; finished steps are not redone
+  worker pid 141499, backend: model backend: crusoe
+  worker polling (3s)
+  chapter-20261017-212434-jbrh-01: RUNNING, 5 history events
+    pending activity: translateChapter attempt 2, state STARTED, last heartbeat -, last failure: activity Heartbeat timeout
+
+▶ 6/6  Waiting for the run to complete, then the checks summary
+[cli] translate-20261017-212434-jbrh completed (waited 270.5s)
+  ch 01: approved after 2 review round(s): r1 revise [crit 0 maj 3 min 4; lint 4] → r2 approve [crit 0 maj 0 min 3; lint 0]
+  ch 02: approved after 2 review round(s): r1 approve [crit 0 maj 0 min 5; lint 1] → r2 approve [crit 0 maj 0 min 7; lint 0]
+  ch 03: approved after 1 review round(s): r1 approve [crit 0 maj 0 min 6; lint 0]
+
+== Ablation — run 20261017-212434-jbrh (glossary from 20261017-205002-c4sg)
+  metric                             baseline (1 prompt)    full system
+  glossary terms checked             13                     13
+  term consistency (chosen / chosen+banned) 74.1%                  100.0%
+  chosen-rendering hits              83                     122
+  banned-variant hits (terms affected) 29 (7)                 0 (0)
+  mean distinct renderings per term  1.50                   1.31
+  paragraph term coverage            n/a (no paragraph ids) 109/109 (100.0%)
+  leftover CJK runs                  0                      0
+  rendering collisions / nested violations —                      0 / 1
+  translation cost (USD)             $0.0025                $0.0045
+  translation cached-token rate      35.0%                  60.7%
+  translation tokens (prompt / completion) 1462 / 1864            6120 / 3107
+  review + revise cost (USD, calls)  —                      $0.0264 (5 reviews, 2 revisions)
+  glossary build cost (USD, calls)   —                      $0.0530 (51)
+  total cost (USD)                   $0.0025                $0.0838
+
+  baseline banned variants: 复核: review×8 | 夜航: Night Voyage×7 | 灰名单: gray list×6 | 沈澈: Shen×3 | 师傅: master×1, mentor×2 | 白名单: white list×1
+  full-system banned variants: none
+
+▶ Done. runId=20261017-212434-jbrh  (worker pid 141499 left running)

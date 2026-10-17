@@ -1,0 +1,47 @@
+Chapter 2: The 8 A.M. Meeting Room
+
+The small meeting room had only six seats. Director Zhou sat in the one closest to the door, an untouched Americano in front of her.
+
+"Three thousand four hundred and twelve." She turned to the last page of the spreadsheet Shen Che had sent. "What do you make of it?"
+
+"Two possibilities." Shen Che said. "One: some version of Night Voyage had a problem during its automatic training window in the early hours and misclassified a batch of users onto the gray list. Two: someone is using Night Voyage's name to alter data."
+
+"Which do you lean toward?"
+
+"The second. When a model malfunctions, the errors are random. These three thousand–plus accounts aren't random." He pulled up a chart. "Every single one of them reported the same merchant over the past month."
+
+Director Zhou said nothing. She'd been at Guanlan for nine years, working her way up from data annotation to head of risk control, and Shen Che had rarely seen her pause this long.
+
+"What's the merchant called?"
+
+"The backend only shows an ID number. But I checked—that number corresponds to an advertising client we signed last quarter. They're called 'Qingye Life.'"
+
+Director Zhou rotated her coffee cup half a turn.
+
+"Shen Che," she said, "you're the head of the review team. The review team's job is to review labels, not investigate advertising clients."
+
+"I know."
+
+"Then you should know that this matter ends here. Those three thousand accounts—I'll have the tech team restore them all to the white list this afternoon. You write a report. For the cause, put 'model anomaly.'"
+
+Shen Che didn't agree right away. He thought of what Lu Nan had asked in the early hours of the morning.
+
+"Director Zhou, if it's a model anomaly, then why did Night Voyage only change labels between one and two in the morning?"
+
+"Because that's the automatic training window."
+
+"Then why did it only change the labels of people who reported Qingye Life?"
+
+Director Zhou glanced at him. It was a brief glance, but Shen Che understood it: she'd thought of it too—and she'd thought of it before he did.
+
+"It's eight twenty." Director Zhou stood up. "Have the report on my desk before end of day. As for Xiaolu—tell her to stop pulling logs."
+
+She walked to the door, then stopped.
+
+"Shen Che, you know how your mentor left Guanlan back then, don't you?"
+
+Shen Che's mentor was Gu Heng, the first head of the review team, who'd left the company three years ago "for personal reasons." By the time Shen Che joined, Gu Heng had only mentored him for two months.
+
+"I know," Shen Che said.
+
+"Good." Director Zhou closed the door behind her.

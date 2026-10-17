@@ -1,0 +1,60 @@
+
+== Ablation — run inc-demo-3 (glossary glossary.v3.json from inc-demo-3, 19 terms)
+  metric                                 baseline (1 prompt)  full, before review    full, after review
+  term consistency (chosen / chosen+banned) 80.2%                99.2%                  99.2%
+  chosen-rendering hits                  89                   131                    131
+  banned-variant hits (terms affected)   22 (5)               1 (1)                  1 (1)
+  mean distinct renderings per term      1.24                 1.21                   1.21
+  paragraph term coverage                n/a (no paragraph ids) 114/115 (99.1%)        114/115 (99.1%)
+  leftover CJK runs                      0                    0                      0
+  translation cost (USD)                 $0.0023              $0.0053                + $0.0282 review/revise
+  translation cached-token rate          87.6%                15.8%                  50.3%
+  model calls                            3                    3                      5 reviews, 2 revisions
+  glossary build (USD, calls)            —                    $0.0783 (84)           
+  total cost (USD)                       $0.0023              $0.0836                $0.1118
+
+  banned variants — baseline: 周总: Director Zhou×11 | 陆楠: XiaoLu×4 | 师傅: Master×1, Shifu×1, Driver×2 | 师父: Shifu×1, Master×1 | 人工先验: Human Prior×1
+  banned variants — before review: 师傅: Driver×1
+  banned variants — after review: 师傅: Driver×1
+  Note: consistency counts the chosen rendering vs KNOWN banned variants only; the after-review column is enforced by the loop (approval requires zero lint violations), so the before-review column and the baseline drift are the independent evidence.
+
+== Reference eval (ref/english-reference.md; read by the eval only)
+  glossary v1: 5/11 reference terms match; not in our glossary: 阿澈, 顾衡, 师父, 师傅, 观澜数据, 人工先验, 清野生活, 风控负责人, 浦东机场, 模型异常, 看到不该看的，就是我们的工作。
+    ✗ 沈哥: ours "Shen Ge" (agreement (alias of 沈澈)) vs reference "Shen" / "boss"
+    ✗ 小鹿: ours "Xiao Lu" (agreement (alias of 陆楠)) vs reference "Lu" / "kid"
+    ✗ 周总: ours "Zhou Zong" (agreement) vs reference "Director Zhou" / "Ms. Zhou"
+    ✗ 夜航: ours "Ye Hang" (agreement) vs reference "Night Flight"
+    ✗ 复核组: ours "the Review Group" (agreement) vs reference "Review Team"
+    ✗ 灰名单: ours "gray list" (agreement) vs reference "grey list"
+  glossary v2: 8/15 reference terms match; not in our glossary: 阿澈, 师傅, 观澜数据, 人工先验, 风控负责人, 浦东机场, 看到不该看的，就是我们的工作。
+    ✗ 沈哥: ours "Shen Ge" (agreement (alias of 沈澈)) vs reference "Shen" / "boss"
+    ✗ 小鹿: ours "Xiao Lu" (agreement (alias of 陆楠)) vs reference "Lu" / "kid"
+    ✗ 周总: ours "Zhou Zong" (agreement) vs reference "Director Zhou" / "Ms. Zhou"
+    ✗ 师父: ours "Shi Fu" (terminologist) vs reference "mentor" / "Shifu"
+    ✗ 夜航: ours "Ye Hang" (agreement) vs reference "Night Flight"
+    ✗ 复核组: ours "the Review Group" (agreement) vs reference "Review Team"
+    ✗ 灰名单: ours "gray list" (agreement) vs reference "grey list"
+  glossary v3 (used by this run): 10/19 reference terms match; not in our glossary: 观澜数据, 风控负责人, 看到不该看的，就是我们的工作。
+    ✗ 沈哥: ours "Shen Ge" (agreement (alias of 沈澈)) vs reference "Shen" / "boss"
+    ✗ 小鹿: ours "Xiao Lu" (agreement (alias of 陆楠)) vs reference "Lu" / "kid"
+    ✗ 周总: ours "Zhou Zong" (agreement) vs reference "Director Zhou" / "Ms. Zhou"
+    ✗ 师父: ours "Shi Fu" (terminologist) vs reference "mentor" / "Shifu"
+    ✗ 师傅: ours "Shi Fu" (agreement) vs reference "driver" / "sir"
+    ✗ 夜航: ours "Ye Hang" (agreement) vs reference "Night Flight"
+    ✗ 复核组: ours "the Review Group" (agreement) vs reference "Review Team"
+    ✗ 灰名单: ours "gray list" (agreement) vs reference "grey list"
+    ✗ 人工先验: ours "Ren Gong Xian Yan" (agreement) vs reference "manual prior"
+
+  Fact ledger (occurrences; total = count in the reference translation)
+  fact                 reference  baseline   full
+  3,412 accounts       3          3/3        3/3
+  1–2 a.m. window      2          2/2        2/2
+  72 hours             1          1/1        1/1
+  200 million users    1          1/1        1/1
+  nine years           1          1/1        1/1
+  three years          4          4/4        4/4
+  two months           1          1/1        1/1
+  ~300 accounts        1          1/1        1/1
+  11 p.m.              0          0 (n/a)    0 (n/a: not stated in the reference)
+  8 a.m.               3          3/3        3/3
+  facts fully present: baseline 9/9, full 9/9

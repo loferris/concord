@@ -1,0 +1,73 @@
+[
+  {
+    "version": 1,
+    "chapter": "01",
+    "entitiesTotal": 10,
+    "newEntities": [
+      "沈澈",
+      "陆楠",
+      "周总",
+      "复核组",
+      "夜航",
+      "白名单",
+      "灰名单",
+      "黑名单",
+      "复核",
+      "陆家嘴"
+    ],
+    "newAliases": [],
+    "debates": 0,
+    "precedentsCited": [],
+    "calls": 35,
+    "costUsd": 0.0282
+  },
+  {
+    "version": 2,
+    "chapter": "02",
+    "entitiesTotal": 14,
+    "newEntities": [
+      "模型",
+      "师父",
+      "顾衡",
+      "清野生活"
+    ],
+    "newAliases": [],
+    "debates": 1,
+    "precedentsCited": [
+      "沈澈",
+      "周总",
+      "夜航"
+    ],
+    "calls": 22,
+    "costUsd": 0.0211
+  },
+  {
+    "version": 3,
+    "chapter": "03",
+    "entitiesTotal": 19,
+    "newEntities": [
+      "师傅",
+      "便利贴",
+      "机场",
+      "浦东机场",
+      "人工先验"
+    ],
+    "newAliases": [
+      {
+        "alias": "阿澈",
+        "entity": "沈澈"
+      }
+    ],
+    "debates": 1,
+    "precedentsCited": [
+      "沈澈",
+      "师父",
+      "夜航",
+      "陆家嘴",
+      "白名单",
+      "陆楠"
+    ],
+    "calls": 27,
+    "costUsd": 0.029
+  }
+]

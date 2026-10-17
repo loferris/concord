@@ -8,7 +8,12 @@
     "cli": "tsx src/cli.ts",
     "temporal": "temporal server start-dev --db-filename .tmp/temporal.db",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "book": "tsx src/cli.ts book data/zh/01.txt data/zh/02.txt data/zh/03.txt",
+    "eval": "tsx src/cli.ts eval",
+    "report": "tsx src/cli.ts report",
+    "demo:kill-resume": "scripts/kill-resume.sh",
+    "demo:incremental": "scripts/incremental-demo.sh"
   },
   "engines": {
     "node": ">=20"

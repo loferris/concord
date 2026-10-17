@@ -1,0 +1,40 @@
+{
+  "policies": [
+    {
+      "topic": "Personal names",
+      "rule": "Use pinyin with surname first, no tone marks, no spaces between syllables.",
+      "example_source": "沈澈",
+      "example_target": "Shen Che"
+    },
+    {
+      "topic": "Forms of address and nicknames",
+      "rule": "Keep original pinyin forms (surname + kinship/affectionate marker) for recurring terms; translate meaning only if opaque or used once.",
+      "example_source": "沈哥",
+      "example_target": "Brother Shen"
+    },
+    {
+      "topic": "Titles",
+      "rule": "Translate descriptive titles; romanize proper titles on first use with translation in parentheses, then use translation thereafter.",
+      "example_source": "周总",
+      "example_target": "Director Zhou"
+    },
+    {
+      "topic": "Invented system and product names",
+      "rule": "Keep original pinyin for system/product names; add a brief descriptive gloss in parentheses on first mention only.",
+      "example_source": "夜航",
+      "example_target": "Ye Hang (Night Voyage)"
+    },
+    {
+      "topic": "Spelling and hyphenation",
+      "rule": "Use US spelling; hyphenate compound modifiers before nouns, leave open otherwise.",
+      "example_source": "白名单",
+      "example_target": "whitelist"
+    },
+    {
+      "topic": "Register and tense",
+      "rule": "Narration: past tense, neutral register. Dialogue: match speaker’s age/status/contract; contractions for informal speech, none for formal.",
+      "example_source": "沈哥，你看这个。",
+      "example_target": "Brother Shen, look at this."
+    }
+  ]
+}
