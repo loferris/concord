@@ -108,16 +108,17 @@ blockquote{margin:.6em 0;padding:.6em 1em;border-left:4px solid var(--line);back
 <p>Nemotron decides what the book's words are. DeepSeek writes. GLM checks. Every decision below was made by the agents, except the ones marked <span class="tag ok">resolved</span>, which a human answered.</p></header>
 
 <section><div class="grid">
-<div class="card"><div class="muted">term consistency, one-prompt baseline</div><div class="big">${b.cons}</div><div class="small">${b.banned} banned-variant hits (terms)</div></div>
-<div class="card"><div class="muted">term consistency, full system before review</div><div class="big">${d.cons}</div><div class="small">${d.banned} banned-variant hits · coverage ${d.cov}</div></div>
-<div class="card"><div class="muted">term consistency, full system after review</div><div class="big">${f.cons}</div><div class="small">${f.banned} banned-variant hits · coverage ${f.cov}</div></div>
+<div class="card"><div class="muted">glossary adherence, one-prompt baseline</div><div class="big">${b.cons}</div><div class="small">${b.banned} banned-variant hits (terms)</div></div>
+<div class="card"><div class="muted">glossary adherence, full system before review</div><div class="big">${d.cons}</div><div class="small">${d.banned} banned-variant hits · coverage ${d.cov}</div></div>
+<div class="card"><div class="muted">glossary adherence, full system after review</div><div class="big">${f.cons}</div><div class="small">${f.banned} banned-variant hits · coverage ${f.cov}</div></div>
 <div class="card"><div class="muted">total cost (baseline → full)</div><div class="big">${usd(C.baseline.usd)} → ${usd(C.translator.usd + C.reviewer.usd + C.reviser.usd + C.glossary.usd)}</div><div class="small">glossary ${usd(C.glossary.usd)} (${C.glossary.calls} calls) · translation ${usd(C.translator.usd)} · review/revise ${usd(C.reviewer.usd + C.reviser.usd)}</div></div>
 </div></section>
 
 <section><h2>Ablation</h2>
 <table><thead><tr><th>metric</th><th>baseline (1 prompt)</th><th>full, before review</th><th>full, after review</th></tr></thead><tbody>
-<tr><td>term consistency (chosen / chosen + banned)</td><td>${b.cons}</td><td>${d.cons}</td><td><b>${f.cons}</b></td></tr>
+<tr><td>glossary adherence (chosen / chosen + banned)</td><td>${b.cons}</td><td>${d.cons}</td><td><b>${f.cons}</b></td></tr>
 <tr><td>banned-variant hits (terms affected)</td><td>${b.banned}</td><td>${d.banned}</td><td>${f.banned}</td></tr>
+<tr><td>cross-chapter drift (terms rendered differently across chapters)</td><td>${ab.base.drift.length}${ab.base.drift.length ? ` <span class="small muted">(${esc(ab.base.drift.map((x) => `${x.source}: ${Object.entries(x.byChapter).map(([c, f]) => `${c} ${f.join('/')}`).join('; ')}`).join(' | '))})</span>` : ''}</td><td>${ab.draft.drift.length}</td><td>${ab.final.drift.length}</td></tr>
 <tr><td>mean distinct renderings per term</td><td>${b.variants}</td><td>${d.variants}</td><td>${f.variants}</td></tr>
 <tr><td>paragraph term coverage</td><td class="muted">n/a (no paragraph ids)</td><td>${d.cov}</td><td>${f.cov}</td></tr>
 <tr><td>leftover Chinese</td><td>${b.cjk}</td><td>${d.cjk}</td><td>${f.cjk}</td></tr>
@@ -125,7 +126,8 @@ blockquote{margin:.6em 0;padding:.6em 1em;border-left:4px solid var(--line);back
 <tr><td>cached-token rate on translation</td><td>${pct(C.baseline.cached, C.baseline.prompt)}</td><td>${pct(C.translator.cached, C.translator.prompt)}</td><td>${pct(C.translator.cached + C.reviser.cached, C.translator.prompt + C.reviser.prompt)}</td></tr>
 </tbody></table>
 <p class="small muted">Banned variants excluded as ambiguous (also another entry's rendering): ${esc(ambiguousBannedVariants(g.entries).map((x) => `${x.source} “${x.variant}” (= ${x.conflictsWith})`).join(', ') || 'none')}.</p>
-<p class="small muted">Consistency counts the chosen rendering against <em>known banned variants</em> only. The after-review column is enforced by the loop (approval requires zero lint violations), so the before-review column and the baseline drift are the independent evidence. The same DeepSeek model wrote every column.</p>
+<p class="small muted">Glossary adherence counts the chosen rendering against <em>known banned variants</em> only, so the baseline loses points for consistent but different choices such as “Night Voyage”. Three chapters is too short for heavy drift; that is what the book-scale design is for.</p>
+<p class="small muted">Adherence counts the chosen rendering against <em>known banned variants</em> only. The after-review column is enforced by the loop (approval requires zero lint violations), so the before-review column and the baseline drift are the independent evidence. The same DeepSeek model wrote every column.</p>
 <h3>Where the one-prompt baseline drifted</h3>
 <table><thead><tr><th>term</th><th>glossary rendering</th><th>baseline wrote</th></tr></thead><tbody>
 ${drift.map((s) => `<tr><td class="zh">${esc(s.source)}</td><td>${esc(g.entries.find((e) => e.source === s.source)?.rendering)}</td><td>${s.bannedHits.map((h) => `“${esc(h.variant)}” ×${h.count}`).join(', ')}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">none</td></tr>'}

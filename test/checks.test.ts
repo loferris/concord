@@ -13,7 +13,7 @@ describe('nestedTermViolations', () => {
   });
 });
 
-import { ambiguousBannedVariants, bannedHitDetails, leftoverCJK, lintParagraphs, renderingCollisions, summarize, termDistribution } from '../src/checks';
+import { ambiguousBannedVariants, bannedHitDetails, crossChapterDrift, leftoverCJK, lintParagraphs, renderingCollisions, summarize, termDistribution } from '../src/checks';
 
 describe('termDistribution and friends', () => {
   const glossary = [
@@ -98,5 +98,21 @@ describe('chapter-scoped banned counting', () => {
     expect(hits).toHaveLength(1);
     expect(hits[0]).toMatchObject({ chapter: '03', line: 1, variant: 'mentor', term: '师傅' });
     expect(hits[0].suspect).toMatch(/师父/);
+  });
+});
+
+describe('crossChapterDrift', () => {
+  const g = [
+    { source: '师父', rendering: 'Shi Fu', alias_renderings: [], banned: ['mentor', 'Master', 'Shifu'] },
+    { source: '夜航', rendering: 'Ye Hang', alias_renderings: [], banned: ['Night Voyage'] },
+  ];
+  const chapters = [
+    { name: '02', en: 'His mentor had left. Night Voyage tagged users.', zh: '师父走了。夜航打标签。' },
+    { name: '03', en: 'Chapter 3: The Master. "Shifu," he said. Night Voyage again.', zh: '第三章 师父。“师父。”夜航。' },
+  ];
+  it('counts a term whose forms differ between chapters, not one used the same way everywhere', () => {
+    const d = crossChapterDrift(g, chapters);
+    expect(d.map((x) => x.source)).toEqual(['师父']);
+    expect(d[0].byChapter).toEqual({ '02': ['mentor'], '03': ['master', 'shifu'] });
   });
 });

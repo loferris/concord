@@ -1,6 +1,6 @@
 // Eval-only code. This is the ONLY module allowed to read ref/english-reference.md (the answer key).
 import { readFile } from 'node:fs/promises';
-import { leftoverCJK, summarize, termDistribution, type ChapterText, type CheckSummary, type GlossaryLike, type TermStat } from './checks';
+import { crossChapterDrift, leftoverCJK, summarize, termDistribution, type ChapterText, type CheckSummary, type DriftReport, type GlossaryLike, type TermStat } from './checks';
 import { normRendering } from './normalize';
 import type { Glossary, GlossaryEntry } from './schemas';
 import { splitParagraphs } from './text';
@@ -10,12 +10,13 @@ export const REFERENCE_PATH = 'ref/english-reference.md';
 export interface ColumnResult {
   summary: CheckSummary;
   stats: TermStat[];
+  drift: DriftReport[];
 }
 
 /** Compute the check summary in-process for a set of English chapters against a glossary. */
 export function checkColumn(glossary: GlossaryLike[], chapters: ChapterText[]): ColumnResult {
   const stats = termDistribution(glossary, chapters);
-  return { summary: summarize(stats, leftoverCJK(chapters), 0, 0), stats };
+  return { summary: summarize(stats, leftoverCJK(chapters), 0, 0), stats, drift: crossChapterDrift(glossary, chapters) };
 }
 
 export async function loadFullChapters(runDir: string, chapterNames: string[], sourcePaths: string[], draft: boolean): Promise<ChapterText[]> {

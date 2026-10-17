@@ -16,16 +16,17 @@ blockquote{margin:.6em 0;padding:.6em 1em;border-left:4px solid var(--line);back
 <p>Nemotron decides what the book's words are. DeepSeek writes. GLM checks. Every decision below was made by the agents, except the ones marked <span class="tag ok">resolved</span>, which a human answered.</p></header>
 
 <section><div class="grid">
-<div class="card"><div class="muted">term consistency, one-prompt baseline</div><div class="big">79.5%</div><div class="small">15 (2) banned-variant hits (terms)</div></div>
-<div class="card"><div class="muted">term consistency, full system before review</div><div class="big">100.0%</div><div class="small">0 (0) banned-variant hits · coverage 81/81</div></div>
-<div class="card"><div class="muted">term consistency, full system after review</div><div class="big">100.0%</div><div class="small">0 (0) banned-variant hits · coverage 81/81</div></div>
+<div class="card"><div class="muted">glossary adherence, one-prompt baseline</div><div class="big">79.5%</div><div class="small">15 (2) banned-variant hits (terms)</div></div>
+<div class="card"><div class="muted">glossary adherence, full system before review</div><div class="big">100.0%</div><div class="small">0 (0) banned-variant hits · coverage 81/81</div></div>
+<div class="card"><div class="muted">glossary adherence, full system after review</div><div class="big">100.0%</div><div class="small">0 (0) banned-variant hits · coverage 81/81</div></div>
 <div class="card"><div class="muted">total cost (baseline → full)</div><div class="big">$0.0033 → $0.1251</div><div class="small">glossary $0.0783 (84 calls) · translation $0.0075 · review/revise $0.0393</div></div>
 </div></section>
 
 <section><h2>Ablation</h2>
 <table><thead><tr><th>metric</th><th>baseline (1 prompt)</th><th>full, before review</th><th>full, after review</th></tr></thead><tbody>
-<tr><td>term consistency (chosen / chosen + banned)</td><td>79.5%</td><td>100.0%</td><td><b>100.0%</b></td></tr>
+<tr><td>glossary adherence (chosen / chosen + banned)</td><td>79.5%</td><td>100.0%</td><td><b>100.0%</b></td></tr>
 <tr><td>banned-variant hits (terms affected)</td><td>15 (2)</td><td>0 (0)</td><td>0 (0)</td></tr>
+<tr><td>cross-chapter drift (terms rendered differently across chapters)</td><td>0</td><td>0</td><td>0</td></tr>
 <tr><td>mean distinct renderings per term</td><td>1.13</td><td>1.20</td><td>1.20</td></tr>
 <tr><td>paragraph term coverage</td><td class="muted">n/a (no paragraph ids)</td><td>81/81</td><td>81/81</td></tr>
 <tr><td>leftover Chinese</td><td>0</td><td>0</td><td>0</td></tr>
@@ -33,7 +34,8 @@ blockquote{margin:.6em 0;padding:.6em 1em;border-left:4px solid var(--line);back
 <tr><td>cached-token rate on translation</td><td>63.4%</td><td>11.4%</td><td>35.0%</td></tr>
 </tbody></table>
 <p class="small muted">Banned variants excluded as ambiguous (also another entry's rendering): 陆楠 “Xiao-lu” (= 陆楠).</p>
-<p class="small muted">Consistency counts the chosen rendering against <em>known banned variants</em> only. The after-review column is enforced by the loop (approval requires zero lint violations), so the before-review column and the baseline drift are the independent evidence. The same DeepSeek model wrote every column.</p>
+<p class="small muted">Glossary adherence counts the chosen rendering against <em>known banned variants</em> only, so the baseline loses points for consistent but different choices such as “Night Voyage”. Three chapters is too short for heavy drift; that is what the book-scale design is for.</p>
+<p class="small muted">Adherence counts the chosen rendering against <em>known banned variants</em> only. The after-review column is enforced by the loop (approval requires zero lint violations), so the before-review column and the baseline drift are the independent evidence. The same DeepSeek model wrote every column.</p>
 <h3>Where the one-prompt baseline drifted</h3>
 <table><thead><tr><th>term</th><th>glossary rendering</th><th>baseline wrote</th></tr></thead><tbody>
 <tr><td class="zh">周总</td><td>Zhou Zong</td><td>“Director Zhou” ×11</td></tr><tr><td class="zh">陆楠</td><td>Lu Nan</td><td>“XiaoLu” ×4</td></tr>

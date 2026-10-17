@@ -5,7 +5,7 @@ import { loadEnv } from './env';
 import { TASK_QUEUES, RUN_DATA_DIR, PRICING } from './config';
 import type { BookWorkflowResult, ChapterWorkflowResult, TranslationPhaseResult } from './workflows';
 import type { CheckSummary } from './checks';
-import { ambiguousBannedVariants, bannedHitDetails, nestedTermViolations, renderingCollisions } from './checks';
+import { ambiguousBannedVariants, bannedHitDetails, crossChapterDrift, nestedTermViolations, renderingCollisions } from './checks';
 import { normRendering } from './normalize';
 import { writeJsonAtomic } from './activities/io';
 import { computeAblation, parseEvalArgs, factCounts, glossaryAgreement, loadBaselineChapters, loadFullChapters, referenceEnglish, referenceGlossary } from './eval';
@@ -144,9 +144,11 @@ async function evalRun(runId: string, glossaryRunId?: string, withRef = false, g
   const cov = (c: CheckSummary) => (c.coverage ? `${c.coverage.covered}/${c.coverage.total} (${pct(c.coverage.covered, c.coverage.total)})` : 'n/a');
   console.log(`\n== Ablation — run ${runId} (glossary ${glossaryPath.split('/').slice(-1)[0]} from ${gRun}, ${glossary.entries.length} terms)`);
   row('metric', 'baseline (1 prompt)', 'full, before review', 'full, after review');
-  row('term consistency (chosen / chosen+banned)', cons(base.summary), cons(draft.summary), cons(final.summary));
+  row('glossary adherence (chosen / chosen+banned)', cons(base.summary), cons(draft.summary), cons(final.summary));
   row('chosen-rendering hits', String(base.summary.renderingHits), String(draft.summary.renderingHits), String(final.summary.renderingHits));
   row('banned-variant hits (terms affected)', bn(base.summary), bn(draft.summary), bn(final.summary));
+  const dr = (c: typeof base) => `${c.drift.length}${c.drift.length ? ` (${c.drift.map((d) => `${d.source}: ${Object.entries(d.byChapter).map(([ch, f]) => `${ch} ${f.join('/')}`).join('; ')}`).join(' | ')})` : ''}`;
+  row('cross-chapter drift (terms rendered differently across chapters)', dr(base), dr(draft), dr(final));
   row('mean distinct renderings per term', base.summary.meanVariants.toFixed(2), draft.summary.meanVariants.toFixed(2), final.summary.meanVariants.toFixed(2));
   row('paragraph term coverage', 'n/a (no paragraph ids)', cov(draft.summary), cov(final.summary));
   row('leftover CJK runs', String(base.summary.cjkLeaks), String(draft.summary.cjkLeaks), String(final.summary.cjkLeaks));
@@ -169,7 +171,8 @@ async function evalRun(runId: string, glossaryRunId?: string, withRef = false, g
     }
   }
   console.log('  Note: banned-variant counting is chapter-scoped (a variant for T counts only in chapters where T occurs) and text-level, so a few hits may still be misattributed; use --hits to list them.');
-  console.log('  Note: consistency counts the chosen rendering vs KNOWN banned variants only; the after-review column is enforced by the loop (approval requires zero lint violations), so the before-review column and the baseline drift are the independent evidence.');
+  console.log('  Note: glossary adherence counts the chosen rendering vs KNOWN banned variants only, so the baseline loses points for consistent but different choices (e.g. "Night Voyage"); three chapters is too short for heavy drift, which is what the book-scale design is for.');
+  console.log('  Note: adherence counts the chosen rendering vs KNOWN banned variants only; the after-review column is enforced by the loop (approval requires zero lint violations), so the before-review column and the baseline drift are the independent evidence.');
 
   if (withRef) await evalRef(runId, gRun, glossary, chapterNames, dir);
 }
@@ -186,6 +189,13 @@ async function evalRef(runId: string, gRun: string, glossaryUsed: Glossary, chap
     console.log(`  glossary v${v}${v === glossaryUsed.version ? ' (used by this run)' : ''}: ${a.matches}/${a.compared} reference terms match${human ? ` — includes ${human} human resolution(s), made by the reference's author` : ''}; not in our glossary: ${a.notInGlossary.join(', ') || 'none'}`);
     for (const m of a.mismatches) console.log(`    ✗ ${m.source}: ours "${m.ours}" (${m.decided_by}) vs reference ${m.reference.map((r) => `"${r}"`).join(' / ')}`);
   }
+  // Cross-chapter drift with the reference's alternates added as known forms (catches e.g. 师父 → "mentor").
+  const extra = new Map<string, string[]>();
+  for (const row of ref) row.sources.forEach((src, i) => extra.set(src, [...(extra.get(src) ?? []), ...row.alternates[i]]));
+  const ab2 = await computeAblation(RUN_DATA_DIR, runId, gRun, glossaryUsed.version);
+  const dAll = (chs: typeof ab2.baseChapters) => crossChapterDrift(glossaryUsed.entries, chs, extra);
+  const fmt = (d: ReturnType<typeof dAll>) => `${d.length}${d.length ? ` (${d.map((x) => `${x.source}: ${Object.entries(x.byChapter).map(([c, f]) => `${c} ${f.join('/')}`).join('; ')}`).join(' | ')})` : ''}`;
+  console.log(`\n  cross-chapter drift incl. reference alternates as known forms — baseline: ${fmt(dAll(ab2.baseChapters))}; full system: ${fmt(dAll(ab2.finalChapters))}`);
   const refEn = await referenceEnglish();
   const refCounts = factCounts(refEn);
   const baseText = (await loadBaselineChapters(dir, chapterNames)).map((c) => c.en).join('\n');

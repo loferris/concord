@@ -16,16 +16,17 @@ blockquote{margin:.6em 0;padding:.6em 1em;border-left:4px solid var(--line);back
 <p>Nemotron decides what the book's words are. DeepSeek writes. GLM checks. Every decision below was made by the agents, except the ones marked <span class="tag ok">resolved</span>, which a human answered.</p></header>
 
 <section><div class="grid">
-<div class="card"><div class="muted">term consistency, one-prompt baseline</div><div class="big">80.5%</div><div class="small">22 (6) banned-variant hits (terms)</div></div>
-<div class="card"><div class="muted">term consistency, full system before review</div><div class="big">100.0%</div><div class="small">0 (0) banned-variant hits · coverage 109/109</div></div>
-<div class="card"><div class="muted">term consistency, full system after review</div><div class="big">100.0%</div><div class="small">0 (0) banned-variant hits · coverage 109/109</div></div>
+<div class="card"><div class="muted">glossary adherence, one-prompt baseline</div><div class="big">80.5%</div><div class="small">22 (6) banned-variant hits (terms)</div></div>
+<div class="card"><div class="muted">glossary adherence, full system before review</div><div class="big">100.0%</div><div class="small">0 (0) banned-variant hits · coverage 109/109</div></div>
+<div class="card"><div class="muted">glossary adherence, full system after review</div><div class="big">100.0%</div><div class="small">0 (0) banned-variant hits · coverage 109/109</div></div>
 <div class="card"><div class="muted">total cost (baseline → full)</div><div class="big">$0.0023 → $0.0828</div><div class="small">glossary $0.0530 (51 calls) · translation $0.0050 · review/revise $0.0248</div></div>
 </div></section>
 
 <section><h2>Ablation</h2>
 <table><thead><tr><th>metric</th><th>baseline (1 prompt)</th><th>full, before review</th><th>full, after review</th></tr></thead><tbody>
-<tr><td>term consistency (chosen / chosen + banned)</td><td>80.5%</td><td>100.0%</td><td><b>100.0%</b></td></tr>
+<tr><td>glossary adherence (chosen / chosen + banned)</td><td>80.5%</td><td>100.0%</td><td><b>100.0%</b></td></tr>
 <tr><td>banned-variant hits (terms affected)</td><td>22 (6)</td><td>0 (0)</td><td>0 (0)</td></tr>
+<tr><td>cross-chapter drift (terms rendered differently across chapters)</td><td>3 <span class="small muted">(白名单: 01 whitelist; 02 white list; 03 whitelist | 复核: 01 review; 02 check/review | 沈澈: 01 shen/shen che; 02 shen che; 03 shen/shen che)</span></td><td>0</td><td>0</td></tr>
 <tr><td>mean distinct renderings per term</td><td>1.46</td><td>1.38</td><td>1.38</td></tr>
 <tr><td>paragraph term coverage</td><td class="muted">n/a (no paragraph ids)</td><td>109/109</td><td>109/109</td></tr>
 <tr><td>leftover Chinese</td><td>0</td><td>0</td><td>0</td></tr>
@@ -33,7 +34,8 @@ blockquote{margin:.6em 0;padding:.6em 1em;border-left:4px solid var(--line);back
 <tr><td>cached-token rate on translation</td><td>87.6%</td><td>39.9%</td><td>60.5%</td></tr>
 </tbody></table>
 <p class="small muted">Banned variants excluded as ambiguous (also another entry's rendering): 陆楠 “Lu-Nan” (= 陆楠), 陆楠 “Xiao-Lu” (= 陆楠), 沈澈 “Ah-Che” (= 沈澈), 沈澈 “Shen-che” (= 沈澈), 夜航 “Ye-hang” (= 夜航).</p>
-<p class="small muted">Consistency counts the chosen rendering against <em>known banned variants</em> only. The after-review column is enforced by the loop (approval requires zero lint violations), so the before-review column and the baseline drift are the independent evidence. The same DeepSeek model wrote every column.</p>
+<p class="small muted">Glossary adherence counts the chosen rendering against <em>known banned variants</em> only, so the baseline loses points for consistent but different choices such as “Night Voyage”. Three chapters is too short for heavy drift; that is what the book-scale design is for.</p>
+<p class="small muted">Adherence counts the chosen rendering against <em>known banned variants</em> only. The after-review column is enforced by the loop (approval requires zero lint violations), so the before-review column and the baseline drift are the independent evidence. The same DeepSeek model wrote every column.</p>
 <h3>Where the one-prompt baseline drifted</h3>
 <table><thead><tr><th>term</th><th>glossary rendering</th><th>baseline wrote</th></tr></thead><tbody>
 <tr><td class="zh">夜航</td><td>Ye Hang</td><td>“Night Voyage” ×10</td></tr><tr><td class="zh">灰名单</td><td>graylist</td><td>“gray list” ×6</td></tr><tr><td class="zh">沈澈</td><td>Shen Che</td><td>“Shen” ×3</td></tr><tr><td class="zh">白名单</td><td>whitelist</td><td>“white list” ×1</td></tr><tr><td class="zh">复核</td><td>review</td><td>“check” ×1</td></tr><tr><td class="zh">师傅</td><td>driver</td><td>“master” ×1</td></tr>

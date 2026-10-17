@@ -23,19 +23,23 @@ Same DeepSeek writer in every column; glossary of 13 terms; 3 chapters (`results
 
 | | one-prompt baseline | full system, before review | full system, after review |
 |---|---|---|---|
-| term consistency (chosen vs known banned variants) | 80.5% | 100% | 100% |
+| glossary adherence (chosen vs known banned variants) | 80.5% | 100% | 100% |
 | banned-variant hits | 22 across 6 terms | 0 | 0 |
+| cross-chapter drift (terms rendered differently across chapters) | 3 | 0 | 0 |
 | paragraph term coverage | n/a | 109/109 | 109/109 |
 | total cost | $0.0023 | $0.058 | $0.083 |
 
 Incremental mode (chapters arrive one at a time, the glossary grows v1 → v2 → v3, `results/incremental-inc-demo-3/`):
 10 → 14 → 19 entities; 阿澈 attached as an alias of 沈澈 in v3; 师傅 kept separate from 师父 (then resolved by a
-human to "driver" → v4; chapter 3 re-translated and approved). Baseline 82.0% vs full 100% term consistency,
+human to "driver" → v4; chapter 3 re-translated and approved). Baseline 82.0% vs full 100% glossary adherence,
 coverage 115/115. Details and caveats under *Built today* below; `results/*/report.html` are the reports.
 
-Banned-variant counting is chapter-scoped (a variant for term T counts only in chapters where T's source occurs)
-and text-level, so a few baseline hits may still be misattributed; `cli eval --hits` lists every hit with its
-sentence and flags suspects.
+Glossary adherence measures agreement with the decided glossary, so the baseline loses points for consistent but
+different choices such as "Night Voyage". Cross-chapter drift is the number of terms whose rendering changes
+between chapters (batch baseline: 白名单 whitelist/white list, 复核 review/check, 沈澈 Shen Che/bare Shen). Three
+chapters is too short for heavy drift; that is what the book-scale design is for. Banned-variant counting is
+chapter-scoped and text-level, so a few baseline hits may still be misattributed; `cli eval --hits` lists every
+hit with its sentence and flags suspects.
 
 ## Run
 
@@ -150,8 +154,9 @@ and is read by the eval only (a test enforces it). See `docs/prompts.md` for eve
 
     | metric | baseline (1 prompt) | full, before review | full, after review |
     |---|---|---|---|
-    | term consistency (chosen / chosen+banned) | 80.5% | 100% | 100% |
+    | glossary adherence (chosen / chosen+banned) | 80.5% | 100% | 100% |
     | banned-variant hits (terms affected) | 22 (6) | 0 | 0 |
+    | cross-chapter drift (terms) | 3 | 0 | 0 |
     | paragraph term coverage | n/a | 109/109 | 109/109 |
     | leftover CJK | 0 | 0 | 0 |
     | translation cost | $0.0023 | $0.0050 | + $0.0248 review/revise |
@@ -164,8 +169,10 @@ and is read by the eval only (a test enforces it). See `docs/prompts.md` for eve
     showed one hit, "mentor" in chapter 2 where 师傅 never occurs; scoping removed it.
     \* The baseline prompt is byte-identical across runs, so it hits the cache built by earlier runs.
 
-    **How to read the columns.** Term consistency counts the chosen rendering against *known banned variants*
-    only. A banned variant that is also another entry's rendering or alias rendering (e.g. 浦东机场 banning
+    **How to read the columns.** Glossary adherence counts the chosen rendering against *known banned
+    variants* only: it measures agreement with the decided glossary, so the baseline loses points for
+    consistent but different choices such as "Night Voyage". Three chapters is too short for heavy drift;
+    that is what the book-scale design is for. A banned variant that is also another entry's rendering or alias rendering (e.g. 浦东机场 banning
     "Lujiazui", which is 陆家嘴's rendering) is ambiguous at text level and is excluded from the count; the eval
     lists every excluded variant. After this exclusion the numbers above did not change. The after-review column is enforced by the loop (approval requires zero lint violations), so the
     before-review column and the baseline drift are the independent evidence. Chapter 1 of this run ended
@@ -211,7 +218,11 @@ and is read by the eval only (a test enforces it). See `docs/prompts.md` for eve
     (22 vs 35 calls); chapter 3 did not (27 calls, $0.029): one grouper call per new item that includes every
     existing entity, five genuinely new terms (a new character's title, two places, new jargon), one alias
     decision, and 429 retries whose tokens are still billed. Eval against v4 (chapter-scoped banned counting):
-    100% term consistency vs 82.0% baseline, coverage 115/115, total $0.125 including the chapter-3
+    100% glossary adherence vs 82.0% baseline, cross-chapter drift 0 vs 0 by known variants (the baseline's real
+    师父 drift, "mentor" in ch. 2 vs "Master"/"Shifu" in ch. 3, is invisible to the text-level metric because
+    "mentor" is not a known variant; with the reference's alternates added as forms the baseline shows 1 and the
+    full system also 1, since its ch. 2 says both "Shi Fu" and "mentor" while ch. 3 says only "Shi Fu"),
+    coverage 115/115, total $0.125 including the chapter-3
     re-translation (glossary $0.078) vs $0.083 for the whole-book run; reference glossary agreement 10/19 (the
     single-chapter extractor keeps single-occurrence fixed terms, so 19 terms vs 13 in batch, including 黑名单,
     陆家嘴, 浦东机场, 人工先验). Note that 8 of the 20 baseline hits are "Director Zhou", which this run's agents

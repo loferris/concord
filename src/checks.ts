@@ -313,3 +313,33 @@ export function lintParagraphs(entries: GlossaryLike[], paragraphs: { id: string
 export function formatLint(v: LintViolation[]): string {
   return v.length ? v.map((x) => `${x.paragraphId}: ${x.detail}`).join('\n') : 'none';
 }
+
+// ---- Cross-chapter drift ------------------------------------------------------------------------------
+export interface DriftReport {
+  source: string;
+  /** chapter -> forms used (case-folded): the chosen rendering and/or banned variants */
+  byChapter: Record<string, string[]>;
+}
+/**
+ * Terms whose rendering changes between chapters: for each term, the set of forms used (chosen rendering or a
+ * countable banned variant, case-folded) per chapter where the term's source occurs; a term drifts when two
+ * chapters use different sets. Alias renderings are not forms of the main term.
+ */
+export function crossChapterDrift(entries: GlossaryLike[], chapters: ChapterText[], extraForms?: Map<string, string[]>): DriftReport[] {
+  const everyRendering = allRenderings(entries);
+  const out: DriftReport[] = [];
+  for (const e of entries) {
+    // extraForms (eval-only): e.g. the reference's alternates, so a rendering the glossary never listed is still a form.
+    const forms = Array.from(new Set([e.rendering, ...countableBanned(e, entries), ...(extraForms?.get(e.source) ?? [])].filter(Boolean)));
+    const byChapter: Record<string, string[]> = {};
+    for (const ch of chapters) {
+      if (!termOccursIn(ch, [e.source])) continue;
+      const counts = countVariants(ch.en, [...everyRendering, ...forms]);
+      const used = forms.filter((f) => (counts.get(f) ?? 0) > 0).map((f) => f.toLowerCase());
+      if (used.length) byChapter[ch.name] = Array.from(new Set(used)).sort();
+    }
+    const sets = Object.values(byChapter).map((v) => v.join('|'));
+    if (sets.length >= 2 && new Set(sets).size > 1) out.push({ source: e.source, byChapter });
+  }
+  return out;
+}

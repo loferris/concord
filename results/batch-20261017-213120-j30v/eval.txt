@@ -1,9 +1,10 @@
 
 == Ablation — run 20261017-213120-j30v (glossary glossary.v3.json from 20261017-205002-c4sg, 13 terms)
   metric                                 baseline (1 prompt)  full, before review    full, after review
-  term consistency (chosen / chosen+banned) 80.5%                100.0%                 100.0%
+  glossary adherence (chosen / chosen+banned) 80.5%                100.0%                 100.0%
   chosen-rendering hits                  91                   122                    122
   banned-variant hits (terms affected)   22 (6)               0 (0)                  0 (0)
+  cross-chapter drift (terms rendered differently across chapters) 3 (白名单: 01 whitelist; 02 white list; 03 whitelist | 复核: 01 review; 02 check/review | 沈澈: 01 shen/shen che; 02 shen che; 03 shen/shen che) 0                      0
   mean distinct renderings per term      1.46                 1.38                   1.38
   paragraph term coverage                n/a (no paragraph ids) 109/109 (100.0%)       109/109 (100.0%)
   leftover CJK runs                      0                    0                      0
@@ -44,7 +45,8 @@
 
   banned hits — full system (final) (0):
   Note: banned-variant counting is chapter-scoped (a variant for T counts only in chapters where T occurs) and text-level, so a few hits may still be misattributed; use --hits to list them.
-  Note: consistency counts the chosen rendering vs KNOWN banned variants only; the after-review column is enforced by the loop (approval requires zero lint violations), so the before-review column and the baseline drift are the independent evidence.
+  Note: glossary adherence counts the chosen rendering vs KNOWN banned variants only, so the baseline loses points for consistent but different choices (e.g. "Night Voyage"); three chapters is too short for heavy drift, which is what the book-scale design is for.
+  Note: adherence counts the chosen rendering vs KNOWN banned variants only; the after-review column is enforced by the loop (approval requires zero lint violations), so the before-review column and the baseline drift are the independent evidence.
 
 == Reference eval (ref/english-reference.md; read by the eval only)
   glossary v1: 10/16 reference terms match; not in our glossary: 黑名单, 人工先验, 风控负责人, 陆家嘴, 浦东机场, 看到不该看的，就是我们的工作。
@@ -67,6 +69,8 @@
     ✗ 小鹿: ours "Xiao Lu" (agreement (alias of 陆楠)) vs reference "Lu" / "kid"
     ✗ 夜航: ours "Ye Hang" (agreement) vs reference "Night Flight"
     ✗ 灰名单: ours "graylist" (agreement) vs reference "grey list"
+
+  cross-chapter drift incl. reference alternates as known forms — baseline: 3 (白名单: 01 whitelist; 02 white list; 03 whitelist | 复核: 01 review; 02 check/review | 沈澈: 01 shen/shen che; 02 shen che; 03 shen/shen che); full system: 0
 
   Fact ledger (occurrences; total = count in the reference translation)
   fact                 reference  baseline   full
