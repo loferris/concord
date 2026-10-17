@@ -12,7 +12,7 @@ memory (a glossary) stays current, efficient and conflict-free, and prove it wit
 - Zod for every agent's output; send it as `response_format` via `zodResponseFormat`.
 - Temporal dev server runs separately: `temporal server start-dev --db-filename .tmp/temporal.db`.
 
-## Crusoe (read docs/crusoe-skill.md for details)
+## Crusoe (read docs/crusoe-cv-recursive-agents-hackathon-skill.md; agent prompts in docs/prompts.md)
 - Base URL: https://api.inference.crusoecloud.com/v1, key in env CRUSOE_API_KEY. Never print or commit it.
 - Exact model IDs (confirmed against /v1/models on Oct 17):
   - translator (output): `deepseek-ai/DeepSeek-V4.1-Flash` — thinking off via
@@ -22,6 +22,9 @@ memory (a glossary) stays current, efficient and conflict-free, and prove it wit
     — thinking toggle is `chat_template_kwargs: { enable_thinking: true|false }`.
   - extraction: `nvidia/Nemotron-3.5-Lightning-30B-A3B` — 1M context, reads the whole book in one call;
     a third model means a third per-model rate limit.
+  - reviewer: `zai-org/GLM-5.3-Flash` — thinking ON (bench: off missed 2/3 planted defects). Third family.
+  - Per-agent thinking on/off is the table in docs/prompts.md. Nemotron Super + thinking + json_schema does
+    not terminate on Crusoe (measured); keep Nemotron thinking off.
   - `src/llm.ts#thinkingKwargs` picks the right switch per model family.
 - max_tokens ≥ 1024; treat finish_reason "length" or empty content as a retryable error.
 - Nemotron 3.5 Lightning returns `prompt_tokens_details: null` (no cache reporting); we record that as null.

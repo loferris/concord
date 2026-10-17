@@ -39,6 +39,24 @@ readable `translation.en.txt` and `translate.usage.json`. Workflow history only 
     Super stays on coordination/extraction. Chapter 1: 18/18 ids, 612 prompt / ~900 completion tokens,
     `reasoning_tokens` 0. Cache: first calls report `created_cache_tokens: 512`; a repeat ~20s later
     reported `cached_tokens: 512` (83.7%). Cache lands in 512-token segments and is not instant.
-- [ ] Milestone 2: extract + debate + frozen glossary.
+- [x] **Milestone 2a**: structure and terms. `bun run cli book data/zh/*.txt --stop-after group`, then
+  `cli structure <runId>` prints the address-form table, entities with aliases, and what was kept separate.
+  - Tagger (Super, thinking off) splits each paragraph into narration/speech/thought/text_message segments
+    with speaker, addressee and form of address. Code verifies the joined segments equal the source
+    exactly; dropped or flipped quotation marks at segment edges are snapped back (`src/align.ts`, tested),
+    any altered character fails the attempt as retryable with paragraph id and char index.
+  - `src/extract.ts`: boundary-entropy candidates (2–4 char substrings, ≥3 occurrences across ≥2
+    paragraphs, scored by branching entropy × cohesion, nested terms merged) + `verifyExtraction`, which
+    drops LLM items that are not verbatim in the text or occur only once (names excepted). Unit-tested.
+  - Extractor: Lightning, whole book in one call. Alias grouper: Super, with the tagger's address-form table
+    as evidence and a code-side reconciliation (a form seen as "X → Y: form" belongs to Y).
+  - Real run on 01–03: 20 entities; 小鹿 grouped under 陆楠, 沈哥/阿澈 under 沈澈, 师父 under 顾衡,
+    师父/师傅 kept separate. Address table: 陆楠→沈澈: 沈哥 ×3, 沈澈→陆楠: 小鹿 ×2, 顾衡→沈澈: 阿澈 ×2,
+    沈澈→顾衡: 师父, 沈澈→司机: 师傅.
+  - **Resilience, measured:** Nemotron Super's guided JSON decoding sometimes degenerates into an
+    endless-whitespace loop (hit the 8,192-token cap at ~1 min/attempt; temperature and repetition
+    penalty did not help). Retries use a perturbed seed, and from the 3rd attempt the tagger/grouper fall
+    back to DeepSeek V4.1 Flash (`modelForAttempt`). One chapter in the real run took that path.
+- [ ] Milestone 2b: policies + debates + frozen glossary.v1.json (code written, not yet run).
 - [ ] Milestone 3: all chapters in parallel + checks report.
 - [ ] Milestone 4: eval (baseline vs full system), kill -9 / resume script.

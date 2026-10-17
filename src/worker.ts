@@ -13,7 +13,7 @@ async function main() {
   const workers = await Promise.all([
     Worker.create({ connection, taskQueue: TASK_QUEUES.workflows, workflowsPath }),
     Worker.create({ connection, taskQueue: TASK_QUEUES.fast, activities, maxConcurrentActivityTaskExecutions: 4 }),
-    Worker.create({ connection, taskQueue: TASK_QUEUES.smart, activities, maxConcurrentActivityTaskExecutions: 2 }),
+    Worker.create({ connection, taskQueue: TASK_QUEUES.smart, activities, maxConcurrentActivityTaskExecutions: 4 }),
   ]);
   console.log(`[worker] listening on queues: ${Object.values(TASK_QUEUES).join(', ')}`);
   await Promise.all(workers.map((w) => w.run()));

@@ -6,6 +6,8 @@ export const MODELS = {
   smart: 'nvidia/NVIDIA-Nemotron-3-Super-120B-A12B',
   /** Extraction: reads the whole book in one call (1M ctx) and spreads load onto a third rate limit. */
   extractor: 'nvidia/Nemotron-3.5-Lightning-30B-A3B',
+  /** Review: third family, thinking ON (see docs/prompts.md table). */
+  reviewer: 'zai-org/GLM-5.3-Flash',
 } as const;
 
 export const TASK_QUEUES = {

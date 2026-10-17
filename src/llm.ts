@@ -123,7 +123,9 @@ async function realChatJson(req: ChatJsonRequest, schema: ZodType<unknown>): Pro
       `rl_remaining_tok=${headers?.get('x-ratelimit-remaining-tokens') ?? '?'}`,
   );
   if (finishReason === 'length') {
-    throw ApplicationFailure.create({ type: 'LLMTruncated', message: 'finish_reason=length (raise max_tokens or split input)', nonRetryable: false });
+    // Include a head and tail of the output so a runaway/looping generation is diagnosable from the log.
+    const tail = content.length > 600 ? `${content.slice(0, 200)} … ${content.slice(-400)}` : content;
+    throw ApplicationFailure.create({ type: 'LLMTruncated', message: `finish_reason=length after ${usage.completion_tokens} tokens; output: ${JSON.stringify(tail)}`, nonRetryable: false });
   }
   if (!content.trim()) {
     throw ApplicationFailure.create({ type: 'LLMEmpty', message: 'empty content from model', nonRetryable: false });
