@@ -1,0 +1,17 @@
+# Narration for the 1-minute video. Lines starting with # are ignored.
+# [[name]] marks where a cue starts; the marker itself is not spoken.
+# Cue names the page knows: open, baseline, brain, fan, kill, ablation, close.
+# Fill every [placeholder] before running make-cues (it refuses otherwise).
+# Spell numbers as words and names phonetically (Shun Chuh = Shen Che).
+
+[[open]] One platform has published over seven thousand AI-translated novels, and readers say the AI forgets names a few chapters later...
+
+[[baseline]] Here's one prompt on chapter one. The hero, Shun Chuh, comes out as Shun Jyeh...
+
+[[brain]] Concord gives the agents a shared brain. Three blind proposers suggest every term; twenty of twenty-two agree and freeze. On the team lead's title they split three ways, so a critic and a terminologist settle it, in writing...
+
+[[fan]] Then DeepSeek translates every chapter against that glossary on Crusoe, with Temporal running the show. [[kill]] Kill the worker mid-run, restart it, and it picks up where it stopped...
+
+[[ablation]] Same writer model, with and without the team: term consistency goes from [X] percent to [Y] percent, at [cost] per chapter, with [Z] percent of input served from cache...
+
+[[close]] Neemo-tron decides the words, DeepSeek writes, G L M checks. Concord: agents agree on the book's words, and code checks they kept them.

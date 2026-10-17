@@ -1,0 +1,447 @@
+<meta charset="utf-8">
+<title>Concord Motion</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@500&family=Noto+Sans+SC:wght@500;700&display=swap">
+<style>
+/* Layout: one 16:9 stage sized to the window for screen recording; scenes crossfade inside it. Deliberately single dark theme (it's footage), jade/marigold like the demo card. */
+:root{
+  --bg:#0c1210; --stage:#111a16; --surface:#18241f; --ink:#e6eee9; --muted:#8fa498; --line:#263630;
+  --jade:#5cc79f; --jade-soft:#173a2e; --marigold:#e8a94a; --marigold-soft:#3b2c14; --drift:#ec7a64; --drift-soft:#3d1f19;
+  --display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --body:"Atkinson Hyperlegible","Segoe UI",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --zh:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);margin:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:16px}
+body.clean{cursor:none}
+body.clean .controls{visibility:hidden}
+
+.stage{position:relative;width:min(100%,calc((100dvh - 110px) * 16 / 9));max-width:100%;aspect-ratio:16/9;
+  background:var(--stage);border-radius:14px;overflow:hidden;container-type:inline-size}
+body.clean .stage{width:min(100%,calc((100dvh - 32px) * 16 / 9));border-radius:0}
+
+.scene{position:absolute;inset:0;padding:5cqw 6cqw;display:flex;flex-direction:column;gap:2.4cqw;
+  opacity:0;transition:opacity .5s ease;pointer-events:none}
+.scene.on{opacity:1}
+.kicker{margin:0;font-family:var(--mono);font-size:1.25cqw;letter-spacing:.08em;text-transform:uppercase;color:var(--jade)}
+.sh{display:flex;justify-content:space-between;align-items:baseline}
+.tag{font-family:var(--mono);font-size:1cqw;color:var(--muted);letter-spacing:.06em;text-transform:uppercase}
+.zh{font-family:var(--zh)}
+
+/* reveal helper */
+.hid{opacity:0;transform:translateY(1.2cqw)}
+.rv{transition:opacity .45s ease,transform .45s cubic-bezier(.2,.8,.2,1)}
+
+/* title */
+#sc-title{justify-content:center;gap:1.2cqw}
+#sc-title h1{margin:0;font-family:var(--display);font-weight:700;font-size:10cqw;line-height:.95;letter-spacing:-.02em}
+#sc-title p{margin:0;font-size:2.4cqw;color:var(--muted);max-width:44ch}
+#sc-title .zhmark{font-family:var(--zh);font-weight:700;font-size:2cqw;color:var(--jade);letter-spacing:.3em}
+
+/* hook */
+#sc-hook{justify-content:center}
+.pages{display:flex;flex-direction:column;gap:1.4cqw}
+.pg{display:grid;grid-template-columns:7cqw 1fr;align-items:baseline;gap:2cqw;background:var(--surface);
+  border:1px solid var(--line);border-radius:1cqw;padding:1.6cqw 2.2cqw}
+.pg .ch{font-family:var(--mono);font-size:1.3cqw;color:var(--muted)}
+.pg p{margin:0;font-size:2.5cqw}
+.nm{font-weight:700;padding:0 .4cqw;border-radius:.4cqw;transition:background .4s,color .4s,box-shadow .4s}
+.nm.ok{color:var(--jade)}
+.nm.bad{color:var(--ink)}
+.nm.bad.flag{color:var(--drift);background:var(--drift-soft);box-shadow:0 0 0 .25cqw var(--drift)}
+.caption{margin:0;font-family:var(--display);font-weight:600;font-size:2.8cqw}
+.caption em{font-style:normal;color:var(--drift)}
+
+/* shared brain */
+.brain{flex:1;display:grid;grid-template-columns:1.05fr 1fr;gap:3cqw;min-height:0}
+.decide{display:flex;flex-direction:column;gap:1.6cqw;justify-content:center}
+.term{display:flex;align-items:baseline;gap:1.4cqw}
+.term .zh{font-size:6.2cqw;font-weight:700;line-height:1;transition:opacity .3s}
+.term .lbl{font-family:var(--mono);font-size:1.2cqw;color:var(--muted)}
+.lanes{display:flex;flex-direction:column;gap:1cqw}
+.lane{display:grid;grid-template-columns:12cqw 1fr;align-items:center;gap:1.4cqw}
+.who{font-family:var(--mono);font-size:1.25cqw;color:var(--muted)}
+.who b{color:var(--ink);font-weight:500}
+.cand{justify-self:start;font-size:1.8cqw;padding:.5cqw 1.4cqw;border-radius:99px;background:var(--surface);
+  border:1px solid var(--line);transition:all .4s ease;min-height:1em}
+.cand.agree{background:var(--jade-soft);border-color:var(--jade);color:var(--jade)}
+.cand.split{background:var(--marigold-soft);border-color:var(--marigold);color:var(--marigold)}
+.cand.lose{opacity:.35;text-decoration:line-through}
+.verdict{font-family:var(--display);font-weight:600;font-size:2.1cqw;min-height:2.6em;color:var(--ink)}
+.verdict .j{color:var(--jade)} .verdict .m{color:var(--marigold)}
+
+.gloss{align-self:center;background:var(--surface);border:1px solid var(--line);border-radius:1.2cqw;padding:2cqw;
+  display:flex;flex-direction:column;gap:1.2cqw;transition:border-color .5s,box-shadow .5s}
+.gloss.frozen{border-color:var(--jade);box-shadow:0 0 0 .3cqw var(--jade-soft)}
+.gh{display:flex;justify-content:space-between;align-items:baseline;font-family:var(--display);font-weight:700;font-size:2.2cqw}
+.gh .ver{font-family:var(--mono);font-weight:500;font-size:1.2cqw;color:var(--muted);padding:.3cqw 1cqw;border-radius:99px;border:1px solid var(--line);transition:all .4s}
+.gloss.frozen .ver{color:var(--jade);border-color:var(--jade);background:var(--jade-soft)}
+#rows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.9cqw;min-height:18cqw}
+#rows li{display:grid;grid-template-columns:14.5cqw 1fr;align-items:baseline;gap:1cqw;padding-top:.9cqw;border-top:1px solid var(--line);
+  animation:rowin .45s cubic-bezier(.2,.8,.2,1) both}
+#rows li:first-child{border-top:0;padding-top:0}
+#rows .zh{font-size:2.1cqw;font-weight:700}
+#rows .en{font-size:1.9cqw;font-weight:700}
+#rows .how{grid-column:2;font-family:var(--mono);font-size:1.05cqw;color:var(--jade)}
+#rows .how.d{color:var(--marigold)}
+@keyframes rowin{from{opacity:0;transform:translateX(2cqw)}to{opacity:1;transform:none}}
+
+/* fan-out */
+.fan{flex:1;display:grid;grid-template-columns:.8fr 1.4fr;gap:3cqw;align-items:center;min-height:0}
+.prefix{background:var(--jade-soft);border:1px solid var(--jade);border-radius:1.2cqw;padding:2cqw;display:flex;flex-direction:column;gap:.8cqw}
+.prefix .pl{margin:0;font-family:var(--mono);font-size:1.1cqw;letter-spacing:.06em;text-transform:uppercase;color:var(--jade)}
+.prefix .pv{margin:0;font-family:var(--display);font-weight:700;font-size:2.4cqw}
+.prefix ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:.4cqw;font-size:1.6cqw;color:var(--ink)}
+.prefix ul .zh{color:var(--jade);margin-right:.8cqw}
+.chs{display:flex;flex-direction:column;gap:1.6cqw}
+.chrow{display:grid;grid-template-columns:6cqw 1fr 12cqw;grid-template-rows:auto auto;column-gap:1.6cqw;row-gap:.7cqw;align-items:center}
+.cl{font-family:var(--mono);font-size:1.5cqw}
+.bar{height:1.3cqw;border-radius:99px;background:var(--surface);border:1px solid var(--line);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--jade);border-radius:99px;transition-property:width;transition-timing-function:cubic-bezier(.4,0,.2,1)}
+.chrow.warm .bar i{background:var(--marigold)}
+.st{font-family:var(--mono);font-size:1.2cqw;color:var(--muted);transition:color .3s}
+.st.lit{color:var(--jade)} .chrow.warm .st.lit{color:var(--marigold)}
+.cks{grid-column:2/4;display:flex;gap:1cqw}
+.ck{font-family:var(--mono);font-size:1.15cqw;padding:.25cqw 1cqw;border-radius:99px;border:1px solid var(--jade);color:var(--jade)}
+.roles{margin:0;display:flex;gap:1.2cqw;flex-wrap:wrap}
+.chip{font-family:var(--mono);font-size:1.35cqw;padding:.5cqw 1.4cqw;border-radius:99px;background:var(--jade-soft);color:var(--jade)}
+.chip.m{background:var(--marigold-soft);color:var(--marigold)}
+
+/* close */
+#sc-close{justify-content:center;gap:2cqw}
+#sc-close h2{margin:0;font-family:var(--display);font-weight:700;font-size:8cqw;line-height:.95;letter-spacing:-.02em}
+#sc-close .one{margin:0;font-size:2.6cqw;max-width:36ch;text-wrap:balance}
+#sc-close .repo{margin:0;font-family:var(--mono);font-size:1.6cqw;color:var(--muted)}
+
+/* controls */
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;font-size:13px}
+.controls button{font:inherit;font-family:var(--mono);font-size:12px;color:var(--ink);background:var(--surface);
+  border:1px solid var(--line);border-radius:99px;padding:6px 12px;cursor:pointer}
+.controls button[aria-pressed="true"]{border-color:var(--jade);color:var(--jade)}
+.controls button:focus-visible{outline:3px solid var(--marigold);outline-offset:2px}
+.controls .hint{color:var(--muted);font-family:var(--mono);font-size:11px}
+
+/* footage slate: marks where real screen recording gets cut in */
+#sc-slate{justify-content:center;align-items:flex-start;gap:1.4cqw;background:repeating-linear-gradient(135deg,var(--stage) 0 2cqw,var(--surface) 2cqw 4cqw)}
+#sc-slate .kicker{color:var(--marigold)}
+#sc-slate .sl{margin:0;font-family:var(--display);font-weight:700;font-size:4.4cqw;max-width:34ch;text-wrap:balance;word-break:keep-all}
+#sc-slate .tc{margin:0;font-family:var(--mono);font-size:1.6cqw;color:var(--muted)}
+.controls .tcode{font-family:var(--mono);font-size:12px;color:var(--jade);font-variant-numeric:tabular-nums;min-width:9ch}
+
+/* record mode: stage fills the viewport exactly */
+body.rec{padding:0;cursor:none}
+body.rec .controls{display:none}
+body.rec .stage{width:100vw;height:100vh;max-width:none;aspect-ratio:auto;border-radius:0}
+
+@media (prefers-reduced-motion: reduce){
+  .scene,.rv,.nm,.cand,.gloss,.bar i{transition:none!important}
+  #rows li{animation:none}
+}
+</style>
+
+<div class="stage" id="stage" aria-live="polite">
+  <section class="scene on" id="sc-title" aria-label="Title">
+    <span class="zhmark">译 · 名 · 一 · 致</span>
+    <h1>Concord</h1>
+    <p>A shared brain for long-form translation.</p>
+  </section>
+
+  <section class="scene" id="sc-hook" aria-label="The problem">
+    <p class="kicker">The problem</p>
+    <div class="pages">
+      <article class="pg rv hid" data-k="p0"><span class="ch">Ch 1</span><p><b class="nm ok">Shen Che</b> refreshed the admin panel a third time.</p></article>
+      <article class="pg rv hid" data-k="p1"><span class="ch">Ch 2</span><p>“<b class="nm ok">Shen Che</b>,” she said, “you lead the Review Team.”</p></article>
+      <article class="pg rv hid" data-k="p2"><span class="ch">Ch 3</span><p><b class="nm bad" data-k="bad">Shen Jie</b> took the suitcase.</p></article>
+    </div>
+    <p class="caption rv hid" data-k="cap">Same character. A few chapters later, <em>a new name.</em></p>
+  </section>
+
+  <section class="scene" id="sc-brain" aria-label="The shared brain">
+    <div class="sh"><p class="kicker">Before translating · the team agrees on the words</p><span class="tag">schematic</span></div>
+    <div class="brain">
+      <div class="decide">
+        <div class="term"><span class="zh" data-k="tzh">沈澈</span><span class="lbl">term under decision</span></div>
+        <div class="lanes">
+          <div class="lane"><span class="who"><b>Proposer A</b><br>fidelity</span><span class="cand" data-k="c0"></span></div>
+          <div class="lane"><span class="who"><b>Proposer B</b><br>readability</span><span class="cand" data-k="c1"></span></div>
+          <div class="lane"><span class="who"><b>Proposer C</b><br>genre</span><span class="cand" data-k="c2"></span></div>
+        </div>
+        <div class="verdict" data-k="verdict"></div>
+      </div>
+      <div class="gloss" data-k="gloss">
+        <div class="gh"><span>Glossary</span><span class="ver" data-k="ver">draft</span></div>
+        <ol id="rows"></ol>
+      </div>
+    </div>
+  </section>
+
+  <section class="scene" id="sc-fan" aria-label="Translate against it">
+    <div class="sh"><p class="kicker">Then every chapter translates against it</p><span class="tag">schematic</span></div>
+    <div class="fan">
+      <div class="prefix rv hid" data-k="prefix">
+        <p class="pl">Shared prompt prefix</p>
+        <p class="pv">Glossary v1 · frozen</p>
+        <ul><li><span class="zh">小鹿</span>Little Lu</li><li><span class="zh">师父</span>master</li><li><span class="zh">师傅</span>driver</li><li><span class="zh">观澜</span>Guanlan</li></ul>
+      </div>
+      <div class="chs">
+        <div class="chrow warm rv hid" data-k="r1"><span class="cl">Ch 1</span><div class="bar"><i data-k="b1"></i></div><span class="st" data-k="s1">fills cache</span>
+          <div class="cks"><span class="ck rv hid" data-k="k1a">lint ✓</span><span class="ck rv hid" data-k="k1b">review ✓</span></div></div>
+        <div class="chrow rv hid" data-k="r2"><span class="cl">Ch 2</span><div class="bar"><i data-k="b2"></i></div><span class="st" data-k="s2">cache hit</span>
+          <div class="cks"><span class="ck rv hid" data-k="k2a">lint ✓</span><span class="ck rv hid" data-k="k2b">review ✓</span></div></div>
+        <div class="chrow rv hid" data-k="r3"><span class="cl">Ch 3</span><div class="bar"><i data-k="b3"></i></div><span class="st" data-k="s3">cache hit</span>
+          <div class="cks"><span class="ck rv hid" data-k="k3a">lint ✓</span><span class="ck rv hid" data-k="k3b">review ✓</span></div></div>
+      </div>
+    </div>
+    <p class="roles rv hid" data-k="roles"><span class="chip">Nemotron decides the words</span><span class="chip m">DeepSeek writes</span><span class="chip">GLM checks</span></p>
+  </section>
+
+  <section class="scene" id="sc-close" aria-label="Close">
+    <h2 class="rv hid" data-k="h">Concord</h2>
+    <p class="one rv hid" data-k="one">Agents agree on the book’s words before they translate, and code checks they kept them.</p>
+    <p class="roles rv hid" data-k="chips"><span class="chip">Nemotron decides the words</span><span class="chip m">DeepSeek writes</span><span class="chip">GLM checks</span></p>
+    <p class="repo rv hid" data-k="repo">github.com/loferris/concord · Temporal on Crusoe</p>
+  </section>
+
+  <section class="scene" id="sc-slate" aria-label="Footage goes here">
+    <p class="kicker">Cut to real footage</p>
+    <p class="sl" data-k="sl"></p>
+    <p class="tc" data-k="tc"></p>
+  </section>
+</div>
+
+<div class="controls" role="toolbar" aria-label="Scenes">
+  <button type="button" id="b-voice" data-voice hidden>Play with voice</button>
+  <span class="tcode" id="tcode" hidden></span>
+  <button type="button" id="b-open" data-seq="open">Opening · 8s</button>
+  <button type="button" id="b-brain" data-seq="brain">Shared brain · 14s</button>
+  <button type="button" id="b-fan" data-seq="fan">Fan-out · 7s</button>
+  <button type="button" id="b-close" data-seq="close">Close · 6s</button>
+  <button type="button" id="b-all" data-seq="all">Play all</button>
+  <span class="hint" id="hint">Space replays · H hides controls</span>
+</div>
+
+<script src="cues.js"></script>
+<script>
+(() => {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const scenes = [...document.querySelectorAll('.scene')];
+  const initial = new Map(scenes.map(s => [s.id, s.innerHTML]));
+  let timers = [], lastSeq = 'all';
+
+  const clearT = () => { timers.forEach(clearTimeout); timers = []; };
+  const at = (ms, fn) => timers.push(setTimeout(fn, ms));
+  const show = id => scenes.forEach(s => s.classList.toggle('on', s.id === id));
+  const reset = id => { const s = document.getElementById(id); s.innerHTML = initial.get(id); return s; };
+  const k = (root, key) => root.querySelector(`[data-k="${key}"]`);
+  const reveal = el => el && el.classList.remove('hid');
+
+  // Each builder returns [[delayFromPrevious, fn], ...] and a hold time at the end.
+  const builders = {
+    'sc-title': () => ({ steps: [], hold: 2200 }),
+
+    'sc-hook': r => ({ hold: 1600, steps: [
+      [300, () => reveal(k(r,'p0'))],
+      [800, () => reveal(k(r,'p1'))],
+      [800, () => reveal(k(r,'p2'))],
+      [700, () => k(r,'bad').classList.add('flag')],
+      [500, () => reveal(k(r,'cap'))],
+    ]}),
+
+    'sc-brain': r => {
+      const terms = [
+        { zh:'小鹿', c:['Little Lu','Little Lu','Little Lu'], agree:true, en:'Little Lu', how:'agreed 3/3 · grouped under 陆楠' },
+        { zh:'复核组的组长', c:['Audit Team Leader','Head of the Verification Team','Head of the Review Team'], win:[2], en:'Head of the Review Team',
+          how:'debated · critic: “Audit” is the wrong sense of 复核',
+          v1:'Three-way split. The critic flags “Audit” as the wrong sense of 复核.', v2:'Terminologist: <span class="m">“Head of the Review Team”</span>, citing policy 3.' },
+        { zh:'师傅', c:['driver','driver','driver'], agree:true, en:'driver', how:'agreed 3/3 · kept apart from 师父 “master”' },
+        { zh:'观澜', c:['Guanlan','Guanlan Data','Guanlan'], win:[0,2], en:'Guanlan', how:'debated · the name often stands alone',
+          v1:'Split on “Guanlan Data”. A critic weighs in.', v2:'Terminologist: <span class="m">“Guanlan”</span>; the descriptor breaks where the name appears alone.' },
+      ];
+      const tzh = k(r,'tzh'), v = k(r,'verdict'), rows = r.querySelector('#rows');
+      const cs = [0,1,2].map(i => k(r,'c'+i));
+      const steps = [];
+      terms.forEach(t => {
+        steps.push([400, () => { tzh.textContent = t.zh; v.innerHTML = ''; cs.forEach(c => { c.className = 'cand'; c.textContent = ''; c.style.visibility = 'hidden'; }); }]);
+        cs.forEach((c, i) => steps.push([i ? 220 : 300, () => { c.textContent = t.c[i]; c.style.visibility = 'visible'; }]));
+        if (t.agree) {
+          steps.push([450, () => { cs.forEach(c => c.classList.add('agree')); v.innerHTML = '<span class="j">All three agree.</span> Frozen.'; }]);
+        } else {
+          steps.push([450, () => { cs.forEach(c => c.classList.add('split')); v.innerHTML = t.v1; }]);
+          steps.push([1000, () => { cs.forEach((c, i) => { c.classList.remove('split'); c.classList.add(t.win.includes(i) ? 'agree' : 'lose'); }); v.innerHTML = t.v2; }]);
+        }
+        steps.push([750, () => {
+          const li = document.createElement('li');
+          li.innerHTML = `<span class="zh">${t.zh}</span><span class="en">${t.en}</span><span class="how${t.agree ? '' : ' d'}">${t.how}</span>`;
+          rows.appendChild(li);
+        }]);
+      });
+      steps.push([600, () => { k(r,'gloss').classList.add('frozen'); k(r,'ver').textContent = 'v1 · frozen'; v.innerHTML = '<span class="j">Glossary frozen.</span> Every chapter uses this version.'; }]);
+      return { steps, hold: 1600 };
+    },
+
+    'sc-fan': (r, _arg, scale = 1) => {
+      const fill = (key, ms) => { const i = k(r,key); i.style.transitionDuration = (reduce ? 0 : ms * scale) + 'ms'; i.style.width = '100%'; };
+      return { hold: 1600, steps: [
+        [300, () => reveal(k(r,'prefix'))],
+        [500, () => { reveal(k(r,'r1')); fill('b1', 1500); }],
+        [1500, () => { k(r,'s1').classList.add('lit'); reveal(k(r,'r2')); reveal(k(r,'r3')); fill('b2', 700); fill('b3', 800); }],
+        [850, () => { k(r,'s2').classList.add('lit'); k(r,'s3').classList.add('lit'); }],
+        [300, () => { reveal(k(r,'k1a')); reveal(k(r,'k2a')); reveal(k(r,'k3a')); }],
+        [450, () => { reveal(k(r,'k1b')); reveal(k(r,'k2b')); reveal(k(r,'k3b')); }],
+        [500, () => reveal(k(r,'roles'))],
+      ]};
+    },
+
+    'sc-close': r => ({ hold: 4000, steps: [
+      [200, () => reveal(k(r,'h'))],
+      [400, () => reveal(k(r,'one'))],
+      [500, () => reveal(k(r,'chips'))],
+      [400, () => reveal(k(r,'repo'))],
+    ]}),
+  };
+
+  builders['sc-slate'] = (r, label) => ({ hold: 0, steps: [[0, () => { k(r,'sl').textContent = label; }]] });
+
+  const seqs = {
+    open: ['sc-title','sc-hook'],
+    brain: ['sc-brain'],
+    fan: ['sc-fan'],
+    close: ['sc-close'],
+    all: ['sc-title','sc-hook','sc-brain','sc-fan','sc-close'],
+  };
+
+  function playScene(id, next) {
+    const root = reset(id);
+    show(id);
+    const { steps, hold } = builders[id](root);
+    if (reduce) { steps.forEach(([, f]) => f()); at(hold + 2000, next); return; }
+    let t = 0;
+    steps.forEach(([d, f]) => { t += d; at(t, f); });
+    at(t + hold, next);
+  }
+
+  function play(name) {
+    clearT(); lastSeq = name;
+    document.querySelectorAll('[data-seq]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.seq === name)));
+    const list = seqs[name].slice();
+    const step = () => { const id = list.shift(); if (id) playScene(id, step); };
+    step();
+  }
+
+  // ---- Voice sync: cues.js (from make-cues.ts) sets window.CUES = {audio, duration, cues:[{name,t}]}.
+  // Each cue maps to one or more [scene, secondsAfterCue, arg]. The audio clock drives everything.
+  const CUE_SCENES = {
+    open:     [['sc-title', 0], ['sc-hook', 1.6]],
+    baseline: [['sc-slate', 0, 'Baseline output: 沈澈 → “Shen Jie”']],
+    brain:    [['sc-brain', 0]],
+    fan:      [['sc-fan', 0]],
+    kill:     [['sc-slate', 0, 'Temporal UI: kill -9 the worker → restart → resume']],
+    ablation: [['sc-slate', 0, 'Ablation table: baseline vs full']],
+    close:    [['sc-close', 0]],
+  };
+  const C = window.CUES;
+  let audio = null, segs = [], cur = null, raf = 0;
+  const dbg = new URLSearchParams(location.search).has('debug') ? Object.assign(document.createElement('div'), { style: 'position:fixed;right:8px;bottom:8px;z-index:9;font:700 28px monospace;color:#ff0;background:#000;padding:2px 8px' }) : null;
+  if (dbg) document.body.appendChild(dbg);
+
+  const fmt = s => { const m = Math.floor(s / 60), r = (s - m * 60).toFixed(1).padStart(4, '0'); return `${m}:${r}`; };
+
+  function buildSegments() {
+    const flat = [];
+    C.cues.forEach(c => (CUE_SCENES[c.name] || []).forEach(([scene, off, arg]) => flat.push({ start: c.t + off, scene, arg })));
+    flat.sort((a, b) => a.start - b.start);
+    flat.forEach((s, i) => { s.end = i + 1 < flat.length ? flat[i + 1].start : C.duration + 2; });
+    return flat;
+  }
+
+  function enter(i) {
+    const s = segs[i];
+    const root = reset(s.scene);
+    show(s.scene);
+    const tc = k(root, 'tc'); if (tc) tc.textContent = `${fmt(s.start)} – ${fmt(Math.min(s.end, C.duration))}`;
+    // Fit the scene's steps into its window: shrink if too long, never stretch.
+    const probe = builders[s.scene](root.cloneNode(true), s.arg);
+    const total = probe.steps.reduce((t, [d]) => t + d, 0) / 1000;
+    const scale = total > 0 ? Math.min(1, ((s.end - s.start) * 0.9) / total) : 1;
+    const { steps } = builders[s.scene](root, s.arg, scale);
+    let t = 0;
+    cur = { i, next: 0, steps: steps.map(([d, fn]) => { t += (d / 1000) * scale; return { at: t, fn }; }) };
+  }
+
+  function tick() {
+    tickAt(audio.currentTime);
+    if (!audio.paused && !audio.ended) raf = requestAnimationFrame(tick);
+  }
+
+  function tickAt(now) {
+    let i = 0;
+    for (let j = 0; j < segs.length; j++) if (now >= segs[j].start) i = j;
+    if (!cur || cur.i !== i || now < (cur.lastNow ?? 0) - 0.05) enter(i);
+    const el = now - segs[i].start;
+    while (cur.next < cur.steps.length && cur.steps[cur.next].at <= el) cur.steps[cur.next++].fn();
+    cur.lastNow = now;
+    document.getElementById('tcode').textContent = `${fmt(now)} / ${fmt(C.duration)}`;
+    if (dbg) dbg.textContent = now.toFixed(2);
+  }
+
+  function voicePlay(fromStart) {
+    clearT(); cancelAnimationFrame(raf);
+    document.querySelectorAll('[data-seq]').forEach(b => b.setAttribute('aria-pressed', 'false'));
+    lastSeq = 'voice';
+    if (fromStart) { audio.currentTime = 0; cur = null; }
+    return audio.play();
+  }
+
+  if (C && C.cues && C.cues.length) {
+    audio = new Audio(C.audio);
+    audio.preload = 'auto';
+    segs = buildSegments();
+    audio.addEventListener('play', () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(tick); });
+        audio.addEventListener('seeked', tick);
+    audio.addEventListener('pause', tick);
+    audio.addEventListener('ended', tick);
+    const vb = document.getElementById('b-voice');
+    vb.hidden = false; document.getElementById('tcode').hidden = false;
+    document.getElementById('hint').textContent = 'Space play/pause · ←/→ seek 2s · H hides controls';
+    vb.addEventListener('click', () => { voicePlay(true); vb.blur(); });
+  }
+
+  document.querySelectorAll('[data-seq]').forEach(b => b.addEventListener('click', () => { if (audio) audio.pause(); play(b.dataset.seq); b.blur(); }));
+  addEventListener('keydown', e => {
+    if (e.key === 'h' || e.key === 'H') document.body.classList.toggle('clean');
+    else if (e.key === ' ') {
+      e.preventDefault();
+      if (lastSeq === 'voice' && audio) audio.paused ? voicePlay(false) : audio.pause();
+      else play(lastSeq);
+    } else if (audio && lastSeq === 'voice' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      audio.currentTime = Math.max(0, Math.min(C.duration, audio.currentTime + (e.key === 'ArrowLeft' ? -2 : 2)));
+    }
+  });
+
+  if (new URLSearchParams(location.search).has('render') && C && C.cues) {
+    // Frame-by-frame render for record.ts: it calls renderAt(t) for each frame and screenshots.
+    // Every CSS transition/animation is paused and seeked to its virtual age, so the output is
+    // exact regardless of machine speed.
+    document.body.classList.add('rec', 'playing');
+    const born = new WeakMap();
+    window.renderAt = t => {
+      tickAt(Math.min(t, C.duration));
+      for (const a of document.getAnimations()) {
+        if (!born.has(a)) { born.set(a, t); a.pause(); }
+        a.currentTime = Math.max(0, (t - born.get(a)) * 1000);
+      }
+    };
+    window.__ready = true;
+  } else {
+    const hash = location.hash.slice(1);
+    play(seqs[hash] ? hash : 'all');
+  }
+})();
+</script>

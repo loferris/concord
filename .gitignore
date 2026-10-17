@@ -3,3 +3,7 @@ node_modules/
 .tmp/
 run-data/
 dist/
+demo/out/
+demo/voice.mp3
+demo/cues.*
+demo/captures.js

@@ -1,0 +1,55 @@
+
+== Ablation — run 20261017-213120-j30v (glossary glossary.v3.json from 20261017-205002-c4sg, 13 terms)
+  metric                                 baseline (1 prompt)  full, before review    full, after review
+  term consistency (chosen / chosen+banned) 78.4%                99.2%                  99.2%
+  chosen-rendering hits                  91                   122                    122
+  banned-variant hits (terms affected)   25 (6)               1 (1)                  1 (1)
+  mean distinct renderings per term      1.46                 1.38                   1.38
+  paragraph term coverage                n/a (no paragraph ids) 109/109 (100.0%)       109/109 (100.0%)
+  leftover CJK runs                      0                    0                      0
+  translation cost (USD)                 $0.0023              $0.0050                + $0.0248 review/revise
+  translation cached-token rate          87.6%                39.9%                  60.5%
+  model calls                            3                    3                      5 reviews, 2 revisions
+  glossary build (USD, calls)            —                    $0.0530 (51)           
+  total cost (USD)                       $0.0023              $0.0580                $0.0828
+
+  banned variants — baseline: 夜航: Night Voyage×10 | 灰名单: gray list×6 | 师傅: master×1, mentor×3 | 沈澈: Shen×3 | 白名单: white list×1 | 复核: check×1
+  banned variants — before review: 师傅: mentor×1
+  banned variants — after review: 师傅: mentor×1
+  Note: consistency counts the chosen rendering vs KNOWN banned variants only; the after-review column is enforced by the loop (approval requires zero lint violations), so the before-review column and the baseline drift are the independent evidence.
+
+== Reference eval (ref/english-reference.md; read by the eval only)
+  glossary v1: 10/16 reference terms match; not in our glossary: 黑名单, 人工先验, 风控负责人, 陆家嘴, 浦东机场, 看到不该看的，就是我们的工作。
+    ✗ 沈哥: ours "Brother Shen" (agreement (alias of 沈澈)) vs reference "Shen" / "boss"
+    ✗ 阿澈: ours "Ah Che" (agreement (alias of 沈澈)) vs reference "Che"
+    ✗ 小鹿: ours "Xiao Lu" (agreement (alias of 陆楠)) vs reference "Lu" / "kid"
+    ✗ 夜航: ours "Ye Hang" (agreement) vs reference "Night Flight"
+    ✗ 复核组: ours "Audit Team" (agreement) vs reference "Review Team"
+    ✗ 灰名单: ours "graylist" (agreement) vs reference "grey list"
+  glossary v2: 10/16 reference terms match; not in our glossary: 黑名单, 人工先验, 风控负责人, 陆家嘴, 浦东机场, 看到不该看的，就是我们的工作。
+    ✗ 沈哥: ours "Brother Shen" (agreement (alias of 沈澈)) vs reference "Shen" / "boss"
+    ✗ 阿澈: ours "Ah Che" (agreement (alias of 沈澈)) vs reference "Che"
+    ✗ 小鹿: ours "Xiao Lu" (agreement (alias of 陆楠)) vs reference "Lu" / "kid"
+    ✗ 夜航: ours "Ye Hang" (agreement) vs reference "Night Flight"
+    ✗ 复核组: ours "Audit Team" (terminologist) vs reference "Review Team"
+    ✗ 灰名单: ours "graylist" (agreement) vs reference "grey list"
+  glossary v3 (used by this run): 11/16 reference terms match — includes 3 human resolution(s), made by the reference's author; not in our glossary: 黑名单, 人工先验, 风控负责人, 陆家嘴, 浦东机场, 看到不该看的，就是我们的工作。
+    ✗ 沈哥: ours "Brother Shen" (agreement (alias of 沈澈)) vs reference "Shen" / "boss"
+    ✗ 阿澈: ours "Ah Che" (agreement (alias of 沈澈)) vs reference "Che"
+    ✗ 小鹿: ours "Xiao Lu" (agreement (alias of 陆楠)) vs reference "Lu" / "kid"
+    ✗ 夜航: ours "Ye Hang" (agreement) vs reference "Night Flight"
+    ✗ 灰名单: ours "graylist" (agreement) vs reference "grey list"
+
+  Fact ledger (occurrences; total = count in the reference translation)
+  fact                 reference  baseline   full
+  3,412 accounts       3          3/3        3/3
+  1–2 a.m. window      2          2/2        2/2
+  72 hours             1          1/1        1/1
+  200 million users    1          1/1        1/1
+  nine years           1          1/1        1/1
+  three years          4          4/4        4/4
+  two months           1          1/1        1/1
+  ~300 accounts        1          1/1        1/1
+  11 p.m.              0          0 (n/a)    0 (n/a: not stated in the reference)
+  8 a.m.               3          3/3        3/3
+  facts fully present: baseline 9/9, full 9/9
