@@ -123,6 +123,8 @@ export function boundaryEntropyCandidates(paragraphs: CandidateInput[], opts: Ca
     scored.push({ source: s, count: st.count, paragraph_ids: Array.from(st.paras).sort(), score, left_entropy: hl, right_entropy: hr });
   }
 
+  // Drop time/number expressions before scoring (they recur but are not terms).
+  for (let i = scored.length - 1; i >= 0; i--) if (isTimeOrNumber(scored[i].source)) scored.splice(i, 1);
   // Merge nested: drop a shorter candidate that only ever occurs inside one longer candidate with the same count.
   const bySource = new Map(scored.map((c) => [c.source, c]));
   const dropped = new Set<string>();
@@ -152,6 +154,15 @@ export interface ExtractedLike {
   needs_fixed_rendering: boolean;
   reason: string;
 }
+/** Chinese numerals and time / measure words. A source made only of these is a time or number expression. */
+const NUM_TIME = new Set('零〇一二三四五六七八九十百千万亿两几半点分秒钟年月日天周小时刻早晨上午中午下午晚上夜里凌晨傍晚今明昨前后到条个次'.split(''));
+export function isTimeOrNumber(source: string): boolean {
+  const chars = Array.from(source);
+  if (!chars.length) return false;
+  const rest = chars.filter((c) => !NUM_TIME.has(c) && !/[0-9０-９:：.．]/.test(c));
+  return rest.length === 0;
+}
+
 /** Types that may legitimately occur once (a name mentioned a single time still needs a fixed rendering). */
 const SINGLE_OK = new Set(['person', 'address_form', 'title', 'org', 'product', 'place', 'homograph']);
 
@@ -183,6 +194,10 @@ export function verifyExtraction<T extends ExtractedLike>(items: T[], paragraphs
     for (const p of paragraphs) count += p.text.split(source).length - 1;
     if (count === 0) {
       dropped.push({ source, why: 'not found verbatim in text' });
+      continue;
+    }
+    if (isTimeOrNumber(source)) {
+      dropped.push({ source, why: 'time/number expression' });
       continue;
     }
     if (count < minCount && !SINGLE_OK.has(it.type)) {

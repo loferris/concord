@@ -1,11 +1,13 @@
-export { translateChapter } from './translate';
-export type { TranslateChapterInput, TranslateChapterOutput } from './translate';
+export { translateChapter, translateBaseline } from './translate';
+export type { TranslateChapterInput, TranslateChapterOutput, BaselineOutput } from './translate';
+export { runChecks } from './checks';
+export type { RunChecksInput, RunChecksOutput } from './checks';
 export { tagChapter } from './tag';
 export type { TagChapterInput, TagChapterOutput } from './tag';
 export { extractTerms } from './extract';
 export type { ExtractTermsInput, ExtractTermsOutput } from './extract';
 export { groupAliases } from './group';
 export type { GroupAliasesInput, GroupAliasesOutput } from './group';
-export { setPolicies, propose, critique, decide, writeGlossary } from './glossary';
+export { setPolicies, propose, critique, decide, writeGlossary, findNestedViolations, readGlossaryEntries } from './glossary';
 export type { SetPoliciesInput, SetPoliciesOutput, ProposeInput, ProposeOutput, CritiqueInput, DecideInput, WriteGlossaryInput } from './glossary';
 export { listEntities, listEntityAliases } from './list';

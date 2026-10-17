@@ -115,18 +115,71 @@ export async function DebateWorkflow(input: DebateWorkflowInput): Promise<Debate
 export interface BookWorkflowInput {
   runId: string;
   chapterPaths: string[];
-  /** Stop early for inspection: 'group' = after tag/extract/group (milestone 2a). */
+  /** Stop early for inspection: 'group' = after tag/extract/group (2a); 'glossary' = after glossary.v2 (2b). */
   stopAfter?: 'group' | 'glossary';
+}
+
+export interface TranslationPhaseResult {
+  glossaryUsed: string;
+  chapters: { chapterName: string; paragraphCount: number; newTermCount: number; translationPath: string; englishPath: string }[];
+  baseline: { chapterName: string; englishPath: string }[];
+  checks: { full: import('./checks').CheckSummary; baseline: import('./checks').CheckSummary; fullPath: string; baselinePath: string };
+}
+
+/**
+ * Milestone 3: translate the first chapter alone (warms the shared prefix cache), then the rest in parallel;
+ * run the one-prompt baseline on every chapter; run the code checks on both.
+ */
+async function translationPhase(runId: string, chapterPaths: string[], taggedPaths: string[], glossaryPath: string, policiesPath: string): Promise<TranslationPhaseResult> {
+  const [first, ...rest] = chapterPaths;
+  const tr = (i: number) => fast.translateChapter({ runId, chapterPath: chapterPaths[i], taggedPath: taggedPaths[i], glossaryPath, policiesPath });
+  const firstOut = await tr(0);
+  const [restOut, baseline] = await Promise.all([
+    Promise.all(rest.map((_, i) => tr(i + 1))),
+    Promise.all(chapterPaths.map((chapterPath) => fast.translateBaseline({ runId, chapterPath }))),
+  ]);
+  const chapters = [firstOut, ...restOut];
+  const names = chapters.map((c) => c.chapterName);
+  const [full, base] = await Promise.all([
+    local.runChecks({ runId, glossaryPath, label: 'full', chapters: chapters.map((c, i) => ({ name: c.chapterName, sourcePath: chapterPaths[i], englishPath: c.englishPath, translationPath: c.translationPath })) }),
+    local.runChecks({ runId, glossaryPath, label: 'baseline', chapters: baseline.map((b, i) => ({ name: b.chapterName, sourcePath: chapterPaths[names.indexOf(b.chapterName)] ?? chapterPaths[i], englishPath: b.englishPath })) }),
+  ]);
+  return {
+    glossaryUsed: glossaryPath,
+    chapters: chapters.map((c) => ({ chapterName: c.chapterName, paragraphCount: c.paragraphCount, newTermCount: c.newTermCount, translationPath: c.translationPath, englishPath: c.englishPath })),
+    baseline: baseline.map((b) => ({ chapterName: b.chapterName, englishPath: b.englishPath })),
+    checks: { full: full.summary, baseline: base.summary, fullPath: full.checksPath, baselinePath: base.checksPath },
+  };
+}
+
+export interface TranslateBookWorkflowInput {
+  runId: string;
+  /** A finished BookWorkflow run whose tagged chapters, policies and glossary.v2 are reused. */
+  glossaryRunId: string;
+  chapterPaths: string[];
+  glossaryVersion?: number;
+}
+/** Reuse an existing glossary run: translation + baseline + checks only. */
+export async function TranslateBookWorkflow(input: TranslateBookWorkflowInput): Promise<TranslationPhaseResult & { runId: string; glossaryRunId: string }> {
+  const base = `run-data/${input.glossaryRunId}`;
+  const names = input.chapterPaths.map((p) => p.split('/').pop()!.replace(/\.[^.]+$/, ''));
+  const taggedPaths = names.map((n) => `${base}/chapters/${n}/tagged.json`);
+  const res = await translationPhase(input.runId, input.chapterPaths, taggedPaths, `${base}/glossary/glossary.v${input.glossaryVersion ?? 2}.json`, `${base}/glossary/policies.json`);
+  return { ...res, runId: input.runId, glossaryRunId: input.glossaryRunId };
 }
 export interface BookWorkflowResult {
   runId: string;
   tagged: { chapterName: string; paragraphCount: number; segmentCount: number }[];
-  extraction: { candidateCount: number; itemCount: number; rejectedCount: number };
+  extraction: { candidateCount: number; itemCount: number; rejectedCount: number; captureRecapture: { runA: number; runB: number; both: number; union: number; estimatedTotal: number; estimatedRecall: number } };
   grouping: { entityCount: number; keptSeparateCount: number; entitiesPath: string; addressFormsPath: string };
   policiesPath?: string;
   glossaryPath?: string;
+  /** glossary.v2.json after the nested-term pass (same as v1 when nothing violated). */
+  glossaryV2Path?: string;
+  nestedViolationsFixed?: string[];
+  translation?: TranslationPhaseResult;
   glossary?: { entries: number; byAgreement: number; agreementRaw: number; agreementNormalized: number; debated: number; needsHuman: number; modelCalls: number };
-  status: 'structured' | 'glossary-frozen';
+  status: 'structured' | 'glossary-frozen' | 'translated';
 }
 
 export async function BookWorkflow(input: BookWorkflowInput): Promise<BookWorkflowResult> {
@@ -144,7 +197,7 @@ export async function BookWorkflow(input: BookWorkflowInput): Promise<BookWorkfl
   const partial: BookWorkflowResult = {
     runId: input.runId,
     tagged: tagged.map((t) => ({ chapterName: t.chapterName, paragraphCount: t.paragraphCount, segmentCount: t.segmentCount })),
-    extraction: { candidateCount: extraction.candidateCount, itemCount: extraction.itemCount, rejectedCount: extraction.rejectedCount },
+    extraction: { candidateCount: extraction.candidateCount, itemCount: extraction.itemCount, rejectedCount: extraction.rejectedCount, captureRecapture: { runA: extraction.captureRecapture.runA, runB: extraction.captureRecapture.runB, both: extraction.captureRecapture.both, union: extraction.captureRecapture.union, estimatedTotal: extraction.captureRecapture.estimatedTotal, estimatedRecall: extraction.captureRecapture.estimatedRecall } },
     grouping: { entityCount: grouping.entityCount, keptSeparateCount: grouping.keptSeparateCount, entitiesPath: grouping.entitiesPath, addressFormsPath: grouping.addressFormsPath },
     status: 'structured',
   };
@@ -166,11 +219,50 @@ export async function BookWorkflow(input: BookWorkflowInput): Promise<BookWorkfl
   );
   // 6. Freeze: glossary.v1.json sorted by source, with code-side collision check.
   const entries = debates.map((d) => d.entry);
-  const g = await local.writeGlossary({ runId: input.runId, entitiesPath: grouping.entitiesPath, entries });
-  return {
+  const g = await local.writeGlossary({ runId: input.runId, entitiesPath: grouping.entitiesPath, entries, version: 1 });
+
+  // 7. Nested-term rule: if A's source contains B's source, A's rendering must contain B's. Re-decide only
+  //    the violators with B's rendering as a frozen constraint, sequentially, and write glossary.v2.json.
+  const violations = await local.findNestedViolations(g.glossaryPath);
+  const v2 = [...entries];
+  const fixed: string[] = [];
+  const bySource = new Set(violations.map((v) => v.source));
+  for (const source of bySource) {
+    const cs = violations.filter((v) => v.source === source).map((v) => ({ within: v.within, requiredRendering: v.requiredRendering }));
+    const i = v2.findIndex((e) => e.source === source);
+    const prev = v2[i];
+    const { decision, notes } = await smart.decide({
+      runId: input.runId,
+      entitiesPath: grouping.entitiesPath,
+      policiesPath: policies.policiesPath,
+      source,
+      proposals: [{ rendering: prev.rendering, alias_renderings: prev.alias_renderings, banned: prev.banned, confidence: prev.confidence, rationale: prev.rationale }],
+      critique: null,
+      otherSources: sources.filter((s) => s !== source),
+      constraints: cs,
+    });
+    v2[i] = {
+      ...prev,
+      rendering: decision.rendering.trim(),
+      alias_renderings: decision.alias_renderings,
+      banned: decision.banned,
+      context_rules: decision.context_rules,
+      decided_by: 'terminologist',
+      rationale: decision.rationale,
+      confidence: decision.confidence,
+      needs_human: decision.needs_human,
+      needs_human_reason: decision.needs_human ? decision.rationale : null,
+      code_notes: [...prev.code_notes, `v2: re-decided under nested-term constraint (${cs.map((c) => `${c.within} → ${c.requiredRendering}`).join('; ')}); was "${prev.rendering}"`, ...notes],
+    };
+    fixed.push(`${source}: "${prev.rendering}" → "${decision.rendering}"`);
+  }
+  const g2 = await local.writeGlossary({ runId: input.runId, entitiesPath: grouping.entitiesPath, entries: v2, version: 2 });
+  const frozen: BookWorkflowResult = {
     ...partial,
     policiesPath: policies.policiesPath,
     glossaryPath: g.glossaryPath,
+    glossaryV2Path: g2.glossaryPath,
+    nestedViolationsFixed: fixed,
     glossary: {
       entries: g.entryCount,
       byAgreement: entries.filter((e) => e.decided_by === 'agreement').length,
@@ -178,8 +270,13 @@ export async function BookWorkflow(input: BookWorkflowInput): Promise<BookWorkfl
       agreementNormalized: debates.filter((d) => d.agreement === 'normalized').length,
       debated: entries.filter((e) => e.decided_by === 'terminologist').length,
       needsHuman: entries.filter((e) => e.needs_human).length,
-      modelCalls: 1 + debates.reduce((n, d) => n + d.calls, 0),
+      modelCalls: 1 + debates.reduce((n, d) => n + d.calls, 0) + fixed.length,
     },
     status: 'glossary-frozen',
   };
+  if (input.stopAfter === 'glossary') return frozen;
+
+  // 8. Translate against glossary.v2: first chapter alone, then the rest in parallel; baseline; checks.
+  const translation = await translationPhase(input.runId, input.chapterPaths, tagged.map((t) => t.taggedPath), g2.glossaryPath, policies.policiesPath);
+  return { ...frozen, translation, status: 'translated' };
 }

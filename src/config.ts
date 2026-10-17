@@ -20,3 +20,11 @@ export const TASK_QUEUES = {
 
 export const EVAL_SEED = 20261017;
 export const RUN_DATA_DIR = 'run-data';
+
+/** USD per 1M tokens: prompt (uncached), completion, cached prompt. From docs/crusoe-*.md and /v1/models, Oct 17 2026. */
+export const PRICING: Record<string, { prompt: number; completion: number; cached: number }> = {
+  'deepseek-ai/DeepSeek-V4.1-Flash': { prompt: 0.29, completion: 1.2, cached: 0.007 },
+  'nvidia/NVIDIA-Nemotron-3-Super-120B-A12B': { prompt: 0.3, completion: 2.4, cached: 0.15 },
+  'nvidia/Nemotron-3.5-Lightning-30B-A3B': { prompt: 0.05, completion: 0.2, cached: 0.03 },
+  'zai-org/GLM-5.3-Flash': { prompt: 0.15, completion: 0.5, cached: 0.03 },
+};

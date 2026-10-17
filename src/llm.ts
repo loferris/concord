@@ -6,7 +6,7 @@ import { ApplicationFailure } from '@temporalio/common';
 import type { ZodType } from 'zod';
 import type { Usage } from './schemas';
 import { useFakeModel } from './env';
-import { fakeChatJson } from './fake';
+import { fakeChatJson, fakeChatText } from './fake';
 
 export const CRUSOE_BASE_URL = 'https://api.inference.crusoecloud.com/v1';
 
@@ -132,6 +132,44 @@ async function realChatJson(req: ChatJsonRequest, schema: ZodType<unknown>): Pro
     throw ApplicationFailure.create({ type: 'LLMEmpty', message: 'empty content from model', nonRetryable: false });
   }
   return { content, finishReason, usage };
+}
+
+/** Plain-text chat call (no response_format), for the one-prompt baseline. Same error classification. */
+export async function chatText(req: ChatJsonRequest): Promise<ChatJsonRaw> {
+  if (useFakeModel()) return fakeChatText(req);
+  const body = {
+    model: req.model,
+    messages: [
+      { role: 'system' as const, content: req.system },
+      { role: 'user' as const, content: req.user },
+    ],
+    max_tokens: Math.max(1024, req.maxTokens ?? 1024),
+    temperature: req.temperature ?? 0.2,
+    seed: req.seed,
+    chat_template_kwargs: { ...thinkingKwargs(req.model, req.enableThinking ?? false), ...(req.templateKwargs ?? {}) },
+    ...(req.extra ?? {}),
+  };
+  let completion: OpenAI.Chat.Completions.ChatCompletion;
+  try {
+    completion = await getClient().chat.completions.create(body as unknown as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming);
+  } catch (err) {
+    classify(err);
+  }
+  const choice = completion!.choices?.[0];
+  const content = choice?.message?.content ?? '';
+  const u = completion!.usage;
+  const usage: Usage = {
+    model: req.model,
+    prompt_tokens: u?.prompt_tokens ?? 0,
+    completion_tokens: u?.completion_tokens ?? 0,
+    cached_tokens: u?.prompt_tokens_details ? (u.prompt_tokens_details.cached_tokens ?? 0) : null,
+    created_cache_tokens: (u?.prompt_tokens_details as { created_cache_tokens?: number | null } | undefined)?.created_cache_tokens ?? null,
+    reasoning_tokens: u?.completion_tokens_details?.reasoning_tokens ?? null,
+  };
+  console.log(`[llm] ${req.model} ${req.schemaName} finish=${choice?.finish_reason} prompt=${usage.prompt_tokens} cached=${usage.cached_tokens ?? 'n/a'} completion=${usage.completion_tokens}`);
+  if (choice?.finish_reason === 'length') throw ApplicationFailure.create({ type: 'LLMTruncated', message: `finish_reason=length after ${usage.completion_tokens} tokens`, nonRetryable: false });
+  if (!content.trim()) throw ApplicationFailure.create({ type: 'LLMEmpty', message: 'empty content from model', nonRetryable: false });
+  return { content, finishReason: choice?.finish_reason ?? null, usage };
 }
 
 /** One structured-output chat call, validated with Zod. Throws Temporal ApplicationFailures. */

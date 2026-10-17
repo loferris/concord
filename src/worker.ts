@@ -12,8 +12,8 @@ async function main() {
   // Concurrency lives here, per task queue (Crusoe limits are per model per minute).
   const workers = await Promise.all([
     Worker.create({ connection, taskQueue: TASK_QUEUES.workflows, workflowsPath }),
-    Worker.create({ connection, taskQueue: TASK_QUEUES.fast, activities, maxConcurrentActivityTaskExecutions: 4 }),
-    Worker.create({ connection, taskQueue: TASK_QUEUES.smart, activities, maxConcurrentActivityTaskExecutions: 3 }),
+    Worker.create({ connection, taskQueue: TASK_QUEUES.fast, activities, maxConcurrentActivityTaskExecutions: 2 }),
+    Worker.create({ connection, taskQueue: TASK_QUEUES.smart, activities, maxConcurrentActivityTaskExecutions: 2 }),
   ]);
   console.log(`[worker] listening on queues: ${Object.values(TASK_QUEUES).join(', ')}`);
   await Promise.all(workers.map((w) => w.run()));

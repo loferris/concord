@@ -210,3 +210,47 @@ export function renderTaggedParagraph(p: TaggedChapter['paragraphs'][number]): s
     })
     .join('');
 }
+
+// ---- 7. Translator (DeepSeek V4.1 Flash) ----
+export const STYLE_BRIEF = 'Contemporary Chinese workplace suspense. Dry, understated, modern prose; short declarative sentences; natural, unshowy English dialogue. Past tense narration. US spelling.';
+
+/** System = brief + policies + glossary (stable across chapters, byte-identical for prefix caching); user = tagged chapter. */
+export function translatorPrompt(brief: string, policies: string, glossaryHits: string, taggedParagraphs: string, issues?: string): Prompt {
+  return {
+    system: `You are translating a contemporary Chinese novel into English for publication.
+
+Rules:
+- Translate every paragraph. Return exactly the same paragraph IDs, in the same order.
+  Never merge, split, add, or drop paragraphs.
+- The glossary is binding. Use its renderings exactly, including capitalization and alias
+  renderings. Never use a banned variant.
+- If a recurring name or setting term is NOT in the glossary, translate it as best you can
+  and report it under new_terms. Do not invent glossary entries silently.
+- The chapter is tagged with who speaks, thinks, or writes, and to whom. Use the tags to get
+  forms of address, pronouns and voice right. Output plain English text only: no tags.
+- Keep the author's register: dry, understated, modern. Natural English dialogue.
+
+STYLE BRIEF: ${brief}
+POLICIES: ${policies}
+GLOSSARY (entries that occur in this chapter): ${glossaryHits}`,
+    user: `TAGGED CHAPTER (paragraph IDs in brackets):
+${taggedParagraphs}${issues ? `\n\nA reviewer flagged these issues. Revise ONLY the listed paragraphs; return all paragraphs.\nISSUES: ${issues}` : ''}`,
+  };
+}
+
+// ---- 11. Baseline translator (ablation): one prompt, no glossary, no policies, no paragraph IDs ----
+export function baselinePrompt(chapterText: string): Prompt {
+  return { system: 'Translate this Chinese novel chapter into natural, publishable English.', user: chapterText };
+}
+
+/** Glossary lines for the translator prompt, sorted by source so the prefix is byte-identical across chapters. */
+export function formatGlossaryForTranslator(entries: { source: string; rendering: string; alias_renderings: { source: string; rendering: string }[]; banned: string[]; context_rules: { when: string; rendering: string }[] }[]): string {
+  return [...entries]
+    .sort((a, b) => a.source.localeCompare(b.source, 'zh'))
+    .map((e) => {
+      const al = e.alias_renderings.map((a) => `${a.source} → ${a.rendering}`).join(', ');
+      const rules = e.context_rules.map((r) => `when ${r.when}: ${r.rendering}`).join('; ');
+      return `${e.source} → ${e.rendering}${al ? `; aliases: ${al}` : ''}${e.banned.length ? `; never: ${e.banned.join(', ')}` : ''}${rules ? `; ${rules}` : ''}`;
+    })
+    .join('\n');
+}

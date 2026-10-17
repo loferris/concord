@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dedupeBanned, hasCJK, normRaw, normRendering } from '../src/normalize';
+import { dedupeBanned, hasCJK, normRaw, normRendering, renderingFormatProblem } from '../src/normalize';
 
 describe('rendering normalization', () => {
   it('raw key ignores case and whitespace only', () => {
@@ -21,5 +21,14 @@ describe('rendering normalization', () => {
   });
   it('dedupes banned case-insensitively and excludes the rendering', () => {
     expect(dedupeBanned(['Gray List', 'gray list', '', 'Grey List', 'Greylist'], ['Grey List'])).toEqual(['Gray List', 'Greylist']);
+  });
+});
+
+describe('renderingFormatProblem', () => {
+  it('rejects markdown and tone marks, accepts plain English', () => {
+    expect(renderingFormatProblem('*Yèháng* (Night Voyage)')).toMatch(/markdown/);
+    expect(renderingFormatProblem('Lu Nán')).toMatch(/diacritics/);
+    expect(renderingFormatProblem("Head of the Review Team")).toBeNull();
+    expect(renderingFormatProblem("O'Brien-Smith, Jr.")).toBeNull();
   });
 });

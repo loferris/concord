@@ -27,7 +27,7 @@ export function attemptSeed(): number {
   return EVAL_SEED + (attempt - 1);
 }
 
-function currentAttempt(): number {
+export function currentAttempt(): number {
   try {
     return Context.current().info.attempt;
   } catch {

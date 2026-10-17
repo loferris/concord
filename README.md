@@ -71,5 +71,20 @@ readable `translation.en.txt` and `translate.usage.json`. Workflow history only 
     recorded in the entry's `code_notes`.
   - Resilience: perturbed seed per retry everywhere; Super decision calls fall back to Lightning from the
     4th attempt; 429s wait 15s. Every model call appends to `run-data/<run>/usage.jsonl`.
+  - **Glossary fix pass:** time/number expressions are filtered out of extraction (`isTimeOrNumber`);
+    renderings with markdown or diacritics are rejected as retryable; the **nested-term rule** (if A's
+    source contains B's source, A's rendering must contain B's) re-decides only the violators with B's
+    rendering as a frozen constraint and writes `glossary.v2.json`; extraction runs twice and the overlap
+    gives a capture–recapture (Chapman) estimate of term recall, recorded in `extraction.json`.
+- [x] **Milestone 3**: translation against the glossary + ablation.
+  - `cli book <chapters>` continues past the glossary: chapter 1 alone (warms the shared prefix), then the
+    rest in parallel, then the one-prompt baseline (prompt #11, same DeepSeek model, no glossary, no ids).
+    `cli translate <glossaryRunId> <chapters>` reuses a finished glossary run.
+  - `src/checks.ts` (pure, tested): term rendering distribution with longest-first variant masking, banned
+    variants, per-paragraph term coverage, leftover CJK, rendering collisions, nested-term violations.
+  - `cli eval <runId> [glossaryRunId]` prints the ablation table: baseline vs full system, with cost and
+    cached-token rate computed from `usage.jsonl` and the Crusoe price list in `src/config.ts`.
+- [ ] Milestone 3b: reviewer (GLM-5.3-Flash) → revise loop.
+- [ ] Milestone 4: kill -9 / resume script; eval against `ref/english-reference.md`.
 - [ ] Milestone 3: all chapters in parallel + checks report.
 - [ ] Milestone 4: eval (baseline vs full system), kill -9 / resume script.

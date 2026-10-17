@@ -49,7 +49,14 @@ describe('boundaryEntropyCandidates', () => {
   });
 });
 
-import { verifyExtraction } from '../src/extract';
+import { isTimeOrNumber, verifyExtraction } from '../src/extract';
+
+describe('isTimeOrNumber', () => {
+  it('flags time and number expressions, not terms', () => {
+    for (const t of ['八点', '凌晨一点', '凌晨一点到两点', '三千四百一十二条', '三年前', '七十二小时', '1:17', '今天早上']) expect(isTimeOrNumber(t), t).toBe(true);
+    for (const t of ['夜航', '灰名单', '复核组', '小会议室', '沈澈', '三年之约']) expect(isTimeOrNumber(t), t).toBe(false);
+  });
+});
 
 describe('verifyExtraction', () => {
   const paras = [

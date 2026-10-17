@@ -31,6 +31,9 @@ memory (a glossary) stays current, efficient and conflict-free, and prove it wit
 - max_tokens ≥ 1024; treat finish_reason "length" or empty content as a retryable error.
 - Nemotron 3.5 Lightning returns `prompt_tokens_details: null` (no cache reporting); we record that as null.
 - Rate limits are per model per minute. Concurrency is set per task queue, not ad hoc.
+- Measured Oct 17: Crusoe's `429 max_requests_limit (orchestrator)` is a concurrency cap per model, not RPM:
+  Lightning rejects a 2nd in-flight request; Super at 3 concurrent produced 52 429s in one glossary run.
+  Queues run 2 concurrent (`src/worker.ts`); Lightning calls are sequential; 429s wait 15s.
 - OpenAI client: maxRetries 0 (Temporal owns retries). 429/5xx/timeouts/schema failures → retry.
   400/401/403/404 → `ApplicationFailure.nonRetryable`.
 - Put stable content first in every prompt (brief + frozen glossary, sorted), chapter text last,

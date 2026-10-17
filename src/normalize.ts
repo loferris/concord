@@ -37,3 +37,10 @@ export function dedupeBanned(banned: string[], exclude: string[] = []): string[]
   }
   return out;
 }
+
+/** Markdown markup or pinyin tone marks / other diacritics in a rendering: reject and retry. */
+export function renderingFormatProblem(s: string): string | null {
+  if (/[*_`#~\[\]<>|]/.test(s)) return 'contains markdown or markup characters';
+  if (/[\u0300-\u036f]/.test(s.normalize('NFD'))) return 'contains diacritics (tone marks)';
+  return null;
+}

@@ -12,6 +12,13 @@ export const TranslationSchema = z.object({
       text: z.string().describe('English translation of that paragraph'),
     }),
   ),
+  new_terms: z.array(
+    z.object({
+      source: z.string().describe('Recurring name or setting term not in the glossary, exact source string'),
+      paragraph_id: z.string(),
+      provisional_rendering: z.string(),
+    }),
+  ),
 });
 export type Translation = z.infer<typeof TranslationSchema>;
 
@@ -143,7 +150,7 @@ export const GlossaryEntrySchema = z.object({
 });
 export type GlossaryEntry = z.infer<typeof GlossaryEntrySchema>;
 export const GlossarySchema = z.object({
-  version: z.literal(1),
+  version: z.number(),
   runId: z.string(),
   entries: z.array(GlossaryEntrySchema),
 });

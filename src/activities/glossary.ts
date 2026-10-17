@@ -1,12 +1,13 @@
 import { ApplicationFailure } from '@temporalio/common';
 import { MODELS } from '../config';
-import { dedupeBanned, hasCJK, normRaw } from '../normalize';
+import { dedupeBanned, hasCJK, normRaw, normRendering, renderingFormatProblem } from '../normalize';
 import { chatJson } from '../llm';
 import { criticPrompt, formatCritique, formatEntity, formatPolicies, formatProposal, policiesPrompt, proposerPrompt, terminologistPrompt, type Stance } from '../prompts';
 import { CritiqueSchema, PoliciesSchema, ProposalSchema, TerminologistSchema, type Critique, type Glossary, type GlossaryEntry, type Policies, type Proposal, type TerminologistDecision, type Usage } from '../schemas';
 import { splitParagraphs } from '../text';
+import { nestedTermViolations, type NestedViolation } from '../checks';
 import { readText, recordUsage, runDir, writeJsonAtomic } from './io';
-import { attemptSeed, modelForAttempt, withHeartbeat } from './common';
+import { attemptSeed, currentAttempt, modelForAttempt, withHeartbeat } from './common';
 import type { EntityRecord } from './group';
 
 // ---- 3. Policies ----
@@ -43,6 +44,8 @@ function checkRendering(role: string, rendering: string, source: string): void {
   if (!rendering.trim() || hasCJK(rendering)) {
     throw ApplicationFailure.create({ type: 'BadRendering', message: `${role} for ${source}: rendering "${rendering}" is empty or contains CJK`, nonRetryable: false });
   }
+  const problem = renderingFormatProblem(rendering);
+  if (problem) throw ApplicationFailure.create({ type: 'BadRendering', message: `${role} for ${source}: rendering "${rendering}" ${problem}`, nonRetryable: false });
 }
 
 async function loadEntity(entitiesPath: string, source: string): Promise<EntityRecord> {
@@ -119,17 +122,33 @@ export interface DecideInput {
   proposals: Proposal[];
   critique: Critique | null;
   otherSources: string[];
+  /** Nested-term constraints: renderings that must appear inside this entry's rendering. */
+  constraints?: { within: string; requiredRendering: string }[];
 }
 export async function decide(input: DecideInput): Promise<{ decision: TerminologistDecision; usage: Usage; notes: string[] }> {
   return withHeartbeat(async () => {
     const e = await loadEntity(input.entitiesPath, input.source);
     const proposals = input.proposals.map((p, i) => `${'ABC'[i]}: ${formatProposal(p)}`).join('\n');
-    const prompt = terminologistPrompt(await loadPolicies(input.policiesPath), input.otherSources.join(', ') || '(none yet)', entityAndContexts(e), proposals, input.critique ? formatCritique(input.critique) : 'none');
+    const frozen = [
+      ...(input.constraints ?? []).map((c) => `${c.within} → "${c.requiredRendering}" (FROZEN. This entry's source contains ${c.within}, so its rendering MUST contain "${c.requiredRendering}" verbatim.)`),
+      input.otherSources.join(', ') || '(none yet)',
+    ].join('\n');
+    const prompt = terminologistPrompt(await loadPolicies(input.policiesPath), frozen, entityAndContexts(e), proposals, input.critique ? formatCritique(input.critique) : 'none');
     const res = await chatJson({ model: decisionModel(), ...prompt, schemaName: 'terminologist', maxTokens: 2048, seed: attemptSeed(), enableThinking: false }, TerminologistSchema);
     checkRendering('terminologist', res.data.rendering, input.source);
+    const unmet = (input.constraints ?? []).filter((c) => !normRendering(res.data.rendering).includes(normRendering(c.requiredRendering)));
+    if (unmet.length && currentAttempt() < 3) {
+      throw ApplicationFailure.create({ type: 'BadRendering', message: `terminologist for ${input.source}: "${res.data.rendering}" does not contain the frozen rendering "${unmet[0].requiredRendering}" of ${unmet[0].within}`, nonRetryable: false });
+    }
     for (const a of res.data.alias_renderings) checkRendering(`terminologist alias ${a.source}`, a.rendering, input.source);
     const notes: string[] = [];
     const decision: TerminologistDecision = { ...res.data, rendering: res.data.rendering.trim() };
+    if (unmet.length) {
+      // Two attempts could not satisfy the nested-term constraint: keep the decision but hand it to a human.
+      decision.needs_human = true;
+      decision.rationale += ` [code: nested-term constraint not met: ${unmet.map((c) => `${c.within} → ${c.requiredRendering}`).join('; ')}]`;
+      notes.push('nested-term constraint not met after retries; needs_human set');
+    }
     if (decision.source.trim() !== input.source) {
       notes.push(`terminologist wrote source "${decision.source}"; corrected to "${input.source}"`);
       decision.source = input.source;
@@ -160,6 +179,14 @@ export interface WriteGlossaryInput {
   runId: string;
   entitiesPath: string;
   entries: GlossaryEntry[];
+  version?: number;
+}
+export async function findNestedViolations(glossaryPath: string): Promise<NestedViolation[]> {
+  const g = JSON.parse(await readText(glossaryPath)) as Glossary;
+  return nestedTermViolations(g.entries);
+}
+export async function readGlossaryEntries(glossaryPath: string): Promise<GlossaryEntry[]> {
+  return (JSON.parse(await readText(glossaryPath)) as Glossary).entries;
 }
 export async function writeGlossary(input: WriteGlossaryInput): Promise<{ glossaryPath: string; entryCount: number }> {
   const entries = [...input.entries].map((e) => ({ ...e, code_notes: [...e.code_notes] })).sort((a, b) => a.source.localeCompare(b.source, 'zh'));
@@ -188,8 +215,9 @@ export async function writeGlossary(input: WriteGlossaryInput): Promise<{ glossa
     });
     e.banned = dedupeBanned(kept, [e.rendering, ...e.alias_renderings.map((a) => a.rendering)]);
   }
-  const glossary: Glossary = { version: 1, runId: input.runId, entries };
-  const glossaryPath = runDir(input.runId, 'glossary', 'glossary.v1.json');
+  const version = input.version ?? 1;
+  const glossary: Glossary = { version, runId: input.runId, entries };
+  const glossaryPath = runDir(input.runId, 'glossary', `glossary.v${version}.json`);
   await writeJsonAtomic(glossaryPath, glossary);
   return { glossaryPath, entryCount: entries.length };
 }

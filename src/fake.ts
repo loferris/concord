@@ -113,9 +113,11 @@ function fakeCritique() {
   return { critiques: ['A', 'B', 'C'].map((p) => ({ proposal: p, strength: 'fake strength', risk: 'fake risk' })), collisions: [] };
 }
 
-function fakeDecide(user: string) {
+function fakeDecide(user: string, system = '') {
   const source = user.match(/source: (\S+)/)?.[1] ?? 'X';
-  const first = user.match(/rendering: ([^;]+);/)?.[1] ?? fakeRender(source);
+  let first = user.match(/rendering: ([^;]+);/)?.[1] ?? fakeRender(source);
+  // Honor nested-term constraints ("MUST contain "X" verbatim") like a cooperative terminologist.
+  for (const m of system.matchAll(/MUST contain "([^"]+)" verbatim/g)) if (!first.includes(m[1])) first = `${first} ${m[1]}`;
   // Deliberately omit alias renderings so the code-side fill is exercised offline.
   return { source, rendering: first, alias_renderings: [], banned: [`Bad-${fakeRender(source)}`], context_rules: [{ when: '', rendering: '' }], rationale: 'fake: adopted proposal A', confidence: 0.7, needs_human: false };
 }
@@ -123,9 +125,12 @@ function fakeDecide(user: string) {
 export async function fakeChatJson(req: ChatJsonRequest): Promise<ChatJsonRaw> {
   let value: unknown;
   switch (req.schemaName) {
-    case 'translation':
-      value = { paragraphs: blocks(req.user).map((b) => ({ id: b.id, text: `(fake-en) ${b.text}` })) };
+    case 'translation': {
+      // Tagged input: strip the XML-style tags so the fake output has no tags, like the real translator.
+      const paras = blocks(req.user).map((b) => ({ id: b.id, text: `(fake-en) ${b.text.replace(/<[^>]+>/g, '')}` }));
+      value = { paragraphs: paras, new_terms: [] };
       break;
+    }
     case 'tagging':
       value = fakeTag(req.user);
       break;
@@ -145,7 +150,7 @@ export async function fakeChatJson(req: ChatJsonRequest): Promise<ChatJsonRaw> {
       value = fakeCritique();
       break;
     case 'terminologist':
-      value = fakeDecide(req.user);
+      value = fakeDecide(req.user, req.system);
       break;
     default:
       throw new Error(`fake model: no handler for schema "${req.schemaName}"`);
@@ -161,4 +166,13 @@ export async function fakeChatJson(req: ChatJsonRequest): Promise<ChatJsonRaw> {
       cached_tokens: Math.floor(req.system.length / 3),
     },
   };
+}
+
+export async function fakeChatText(req: ChatJsonRequest): Promise<ChatJsonRaw> {
+  const content = req.user
+    .split(/\n\s*\n|\n/)
+    .filter((l) => l.trim())
+    .map((l) => `(fake-en) ${l.trim()}`)
+    .join('\n\n');
+  return { content, finishReason: 'stop', usage: { model: `fake:${req.model}`, prompt_tokens: Math.ceil(req.user.length / 3), completion_tokens: Math.ceil(content.length / 3), cached_tokens: 0 } };
 }
