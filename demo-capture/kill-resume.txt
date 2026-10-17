@@ -35,31 +35,4 @@ $ scripts/kill-resume.sh 20261017-205002-c4sg
 [ 34.2s] 
 [ 34.2s] ▶ 6/6  Waiting for the run to complete, then the checks summary
 [207.3s] [cli] translate-20261017-225652-0l09 completed (waited 172.7s)
-[207.3s]   ch 01: approved after 2 review round(s): r1 revise [crit 0 maj 1 min 6; lint 1] → r2 approve [crit 0 maj 0 min 5; lint 0]
-[207.3s]   ch 02: approved after 2 review round(s): r1 approve [crit 0 maj 0 min 3; lint 1] → r2 approve [crit 0 maj 0 min 6; lint 0]
-[207.3s]   ch 03: approved after 1 review round(s): r1 approve [crit 0 maj 0 min 1; lint 0]
-[207.4s] 
-[207.4s] == Ablation — run 20261017-225652-0l09 (glossary glossary.v3.json from 20261017-205002-c4sg, 13 terms)
-[207.4s]   metric                                 baseline (1 prompt)  full, before review    full, after review
-[207.4s]   glossary adherence (chosen / chosen+banned) 81.7%                99.2%                  100.0%
-[207.4s]   chosen-rendering hits                  94                   122                    122
-[207.4s]   banned-variant hits (terms affected)   21 (5)               1 (1)                  0 (0)
-[207.4s]   cross-chapter drift (terms rendered differently across chapters) 2 (复核: 01 review; 02 check/review | 沈澈: 01 shen/shen che; 02 shen che; 03 shen/shen che) 1 (夜航: 01 night voyage/ye hang; 02 ye hang; 03 ye hang) 0
-[207.4s]   mean distinct renderings per term      1.38                 1.46                   1.31
-[207.4s]   paragraph term coverage                n/a (no paragraph ids) 109/109 (100.0%)       109/109 (100.0%)
-[207.4s]   leftover CJK runs                      0                    0                      0
-[207.4s]   translation cost (USD)                 $0.0025              $0.0048                + $0.0223 review/revise
-[207.4s]   translation cached-token rate          52.5%                52.4%                  54.5%
-[207.4s]   model calls                            3                    3                      5 reviews, 2 revisions
-[207.4s]   glossary build (USD, calls)            —                    $0.0530 (51)           
-[207.4s]   total cost (USD)                       $0.0025              $0.0578                $0.0801
-[207.4s] 
-[207.4s]   banned variants — baseline: 夜航: Night Voyage×10 | 灰名单: gray list×6 | 沈澈: Shen×3 | 复核: check×1 | 师傅: master×1
-[207.4s]   banned variants — before review: 夜航: Night Voyage×1
-[207.4s]   banned variants — after review: none
-[207.4s]   banned variants excluded as ambiguous (also another entry's rendering): 陆楠 "Lu-Nan" (= 陆楠), 陆楠 "Xiao-Lu" (= 陆楠), 沈澈 "Ah-Che" (= 沈澈), 沈澈 "Shen-che" (= 沈澈), 夜航 "Ye-hang" (= 夜航)
-[207.4s]   Note: banned-variant counting is chapter-scoped (a variant for T counts only in chapters where T occurs) and text-level, so a few hits may still be misattributed; use --hits to list them.
-[207.4s]   Note: glossary adherence counts the chosen rendering vs KNOWN banned variants only, so the baseline loses points for consistent but different choices (e.g. "Night Voyage"); three chapters is too short for heavy drift, which is what the book-scale design is for.
-[207.4s]   Note: adherence counts the chosen rendering vs KNOWN banned variants only; the after-review column is enforced by the loop (approval requires zero lint violations), so the before-review column and the baseline drift are the independent evidence.
-[207.4s] 
-[207.4s] ▶ Done. runId=20261017-225652-0l09  (worker pid 197515 left running)
+(eval output omitted)

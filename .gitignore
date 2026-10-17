@@ -7,3 +7,4 @@ demo/out/
 demo/voice.mp3
 demo/cues.*
 demo/captures.js
+.playwright-mcp/
