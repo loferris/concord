@@ -1,9 +1,9 @@
 
 == Ablation — run 20261017-213120-j30v (glossary glossary.v3.json from 20261017-205002-c4sg, 13 terms)
   metric                                 baseline (1 prompt)  full, before review    full, after review
-  term consistency (chosen / chosen+banned) 78.4%                99.2%                  99.2%
+  term consistency (chosen / chosen+banned) 80.5%                100.0%                 100.0%
   chosen-rendering hits                  91                   122                    122
-  banned-variant hits (terms affected)   25 (6)               1 (1)                  1 (1)
+  banned-variant hits (terms affected)   22 (6)               0 (0)                  0 (0)
   mean distinct renderings per term      1.46                 1.38                   1.38
   paragraph term coverage                n/a (no paragraph ids) 109/109 (100.0%)       109/109 (100.0%)
   leftover CJK runs                      0                    0                      0
@@ -13,10 +13,37 @@
   glossary build (USD, calls)            —                    $0.0530 (51)           
   total cost (USD)                       $0.0023              $0.0580                $0.0828
 
-  banned variants — baseline: 夜航: Night Voyage×10 | 灰名单: gray list×6 | 师傅: master×1, mentor×3 | 沈澈: Shen×3 | 白名单: white list×1 | 复核: check×1
-  banned variants — before review: 师傅: mentor×1
-  banned variants — after review: 师傅: mentor×1
+  banned variants — baseline: 夜航: Night Voyage×10 | 灰名单: gray list×6 | 沈澈: Shen×3 | 白名单: white list×1 | 复核: check×1 | 师傅: master×1
+  banned variants — before review: none
+  banned variants — after review: none
   banned variants excluded as ambiguous (also another entry's rendering): 陆楠 "Lu-Nan" (= 陆楠), 陆楠 "Xiao-Lu" (= 陆楠), 沈澈 "Ah-Che" (= 沈澈), 沈澈 "Shen-che" (= 沈澈), 夜航 "Ye-hang" (= 夜航)
+
+  banned hits — baseline (22):
+    01:1  "gray list" counted for 灰名单  — Chapter 1: The Gray List
+    01:7  "gray list" counted for 灰名单  — Today it moved itself to the gray list.
+    01:9  "gray list" counted for 灰名单  — The whitelist was for normal users, the blacklist for bots, and the gray list for "can't be explained.
+    01:9  "gray list" counted for 灰名单  — The whitelist was for normal users, the blacklist for bots, and the gray list for "can't be explained.
+    01:25  "gray list" counted for 灰名单  — Twenty minutes later, the spreadsheet was ready: three thousand four hundred and twelve entries, all changed from the whitelist to the gray list, all occurring 
+    01:7  "Shen" counted for 沈澈  — "Shen, take a look at this.
+    01:33  "Shen" counted for 沈澈  — "Shen," Lu Nan said quietly in the dark, "did we just see something we weren't supposed to see?
+    01:9  "Night Voyage" counted for 夜航  — This was exactly what the review team handled: the company's recommendation system, Night Voyage, tagged two hundred million users every day.
+    01:13  "Night Voyage" counted for 夜航  — "Operator: Night Voyage.
+    01:15  "Night Voyage" counted for 夜航  — Night Voyage was a model, not a person.
+    01:17  "Night Voyage" counted for 夜航  — "Xiaolu, pull all records from the past week where the operator is 'Night Voyage.
+    01:31  "Night Voyage" counted for 夜航  — Some of them would wake up tomorrow morning to find their Night Voyage homepage had turned strange, flooded with recommendations they couldn't understand—and th
+    02:25  "white list" counted for 白名单  — Those three thousand accounts—I'll have the tech team restore them all to the white list this afternoon.
+    02:17  "check" counted for 复核  [SUSPECT: paragraph has 清野生活, not 复核]  — But I checked—that number corresponds to an advertising client we signed last quarter.
+    02:7  "gray list" counted for 灰名单  — "One: some version of Night Voyage had a problem during its automatic training window in the early hours and misclassified a batch of users onto the gray list.
+    02:7  "Night Voyage" counted for 夜航  — "One: some version of Night Voyage had a problem during its automatic training window in the early hours and misclassified a batch of users onto the gray list.
+    02:7  "Night Voyage" counted for 夜航  — "One: some version of Night Voyage had a problem during its automatic training window in the early hours and misclassified a batch of users onto the gray list.
+    02:29  "Night Voyage" counted for 夜航  — "Director Zhou, if it's a model anomaly, then why did Night Voyage only change labels between one and two in the morning?
+    03:7  "Shen" counted for 沈澈  — "Shen-ge, I didn't pull the logs.
+    03:1  "master" counted for 师傅  [SUSPECT: paragraph has 顾衡, not 师傅]  — Chapter 3: The Master
+    03:7  "Night Voyage" counted for 夜航  — "I just went to ask the people in the tech department whether someone could have inserted rules into Night Voyage during its early-morning training.
+    03:39  "Night Voyage" counted for 夜航  — But the interface was the same, the window was the same, the signature was the same—Night Voyage.
+
+  banned hits — full system (final) (0):
+  Note: banned-variant counting is chapter-scoped (a variant for T counts only in chapters where T occurs) and text-level, so a few hits may still be misattributed; use --hits to list them.
   Note: consistency counts the chosen rendering vs KNOWN banned variants only; the after-review column is enforced by the loop (approval requires zero lint violations), so the before-review column and the baseline drift are the independent evidence.
 
 == Reference eval (ref/english-reference.md; read by the eval only)

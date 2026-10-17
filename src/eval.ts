@@ -40,9 +40,12 @@ export async function loadFullChapters(runDir: string, chapterNames: string[], s
   return out;
 }
 
-export async function loadBaselineChapters(runDir: string, chapterNames: string[]): Promise<ChapterText[]> {
+export async function loadBaselineChapters(runDir: string, chapterNames: string[], sourcePaths?: string[]): Promise<ChapterText[]> {
   const out: ChapterText[] = [];
-  for (const n of chapterNames) out.push({ name: n, en: await readFile(`${runDir}/baseline/${n}.en.txt`, 'utf8') });
+  for (let i = 0; i < chapterNames.length; i++) {
+    const n = chapterNames[i];
+    out.push({ name: n, en: await readFile(`${runDir}/baseline/${n}.en.txt`, 'utf8'), zh: sourcePaths ? await readFile(sourcePaths[i], 'utf8') : undefined });
+  }
   return out;
 }
 
@@ -185,6 +188,8 @@ export interface Ablation {
   glossaryPath: string;
   glossary: Glossary;
   chapterNames: string[];
+  baseChapters: ChapterText[];
+  finalChapters: ChapterText[];
   base: ColumnResult;
   draft: ColumnResult;
   final: ColumnResult;
@@ -198,9 +203,11 @@ export async function computeAblation(runDataDir: string, runId: string, glossar
   const gRun = glossaryRunId ?? first.glossary!.split('/')[1];
   const glossaryPath = glossaryVersion ? `${runDataDir}/${gRun}/glossary/glossary.v${glossaryVersion}.json` : first.glossary!;
   const glossary = JSON.parse(await readFile(glossaryPath, 'utf8')) as Glossary;
-  const base = checkColumn(glossary.entries, await loadBaselineChapters(dir, chapterNames));
+  const baseChapters = await loadBaselineChapters(dir, chapterNames, sourcePaths);
+  const finalChapters = await loadFullChapters(dir, chapterNames, sourcePaths, false);
+  const base = checkColumn(glossary.entries, baseChapters);
   const draft = checkColumn(glossary.entries, await loadFullChapters(dir, chapterNames, sourcePaths, true));
-  const final = checkColumn(glossary.entries, await loadFullChapters(dir, chapterNames, sourcePaths, false));
+  const final = checkColumn(glossary.entries, finalChapters);
   const usage = await readUsage(dir);
   const glossaryUsage = gRun !== runId ? await readUsage(`${runDataDir}/${gRun}`) : usage;
   const notTranslation = (r: UsageRow) => !['translator', 'baseline', 'reviewer', 'reviser'].includes(r.role);
@@ -210,6 +217,8 @@ export async function computeAblation(runDataDir: string, runId: string, glossar
     glossaryPath,
     glossary,
     chapterNames,
+    baseChapters,
+    finalChapters,
     base,
     draft,
     final,
@@ -224,16 +233,18 @@ export async function computeAblation(runDataDir: string, runId: string, glossar
 }
 
 /** `cli eval <runId> [glossaryRunId] [--ref] [--glossary-version N]` */
-export function parseEvalArgs(rest: string[]): { runId: string; glossaryRunId?: string; withRef: boolean; glossaryVersion?: number } {
+export function parseEvalArgs(rest: string[]): { runId: string; glossaryRunId?: string; withRef: boolean; glossaryVersion?: number; withHits: boolean } {
   const positional: string[] = [];
   let withRef = false;
+  let withHits = false;
   let glossaryVersion: number | undefined;
   for (let i = 0; i < rest.length; i++) {
     const a = rest[i];
     if (a === '--ref') withRef = true;
+    else if (a === '--hits') withHits = true;
     else if (a === '--glossary-version') glossaryVersion = Number(rest[++i]);
     else positional.push(a);
   }
   if (!positional[0]) throw new Error('usage: cli eval <runId> [glossaryRunId] [--ref] [--glossary-version N]');
-  return { runId: positional[0], glossaryRunId: positional[1], withRef, glossaryVersion };
+  return { runId: positional[0], glossaryRunId: positional[1], withRef, glossaryVersion, withHits };
 }

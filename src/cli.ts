@@ -5,7 +5,7 @@ import { loadEnv } from './env';
 import { TASK_QUEUES, RUN_DATA_DIR, PRICING } from './config';
 import type { BookWorkflowResult, ChapterWorkflowResult, TranslationPhaseResult } from './workflows';
 import type { CheckSummary } from './checks';
-import { ambiguousBannedVariants, nestedTermViolations, renderingCollisions } from './checks';
+import { ambiguousBannedVariants, bannedHitDetails, nestedTermViolations, renderingCollisions } from './checks';
 import { normRendering } from './normalize';
 import { writeJsonAtomic } from './activities/io';
 import { computeAblation, parseEvalArgs, factCounts, glossaryAgreement, loadBaselineChapters, loadFullChapters, referenceEnglish, referenceGlossary } from './eval';
@@ -69,14 +69,14 @@ async function book(chapterPaths: string[], stopAfter?: 'group' | 'glossary') {
   if (result.translation) await evalRun(runId);
 }
 
-async function translateBook(glossaryRunId: string, chapterPaths: string[], detach = false) {
-  const runId = newRunId();
+async function translateBook(glossaryRunId: string, chapterPaths: string[], detach = false, into?: string) {
+  const runId = into ?? newRunId();
   const { connection, client } = await connect();
   console.log(`[cli] runId=${runId} glossaryRunId=${glossaryRunId} chapters=${chapterPaths.join(', ')}`);
   const t0 = Date.now();
   const glossaryVersion = await latestGlossaryVersion(glossaryRunId);
   console.log(`[cli] using glossary.v${glossaryVersion}.json`);
-  const handle = await client.workflow.start('TranslateBookWorkflow', { taskQueue: TASK_QUEUES.workflows, workflowId: `translate-${runId}`, args: [{ runId, glossaryRunId, chapterPaths, glossaryVersion }] });
+  const handle = await client.workflow.start('TranslateBookWorkflow', { taskQueue: TASK_QUEUES.workflows, workflowId: into ? `translate-${runId}-${Date.now()}` : `translate-${runId}`, args: [{ runId, glossaryRunId, chapterPaths, glossaryVersion }] });
   if (detach) {
     console.log(`[cli] started workflowId=translate-${runId} (detached). Wait with: cli wait ${runId} ${glossaryRunId}`);
     await connection.close();
@@ -123,7 +123,7 @@ function cost(rows: UsageRow[]): { usd: number; prompt: number; cached: number; 
  * computed in-process from the run files against the glossary the run used; cost and cached-token rate from
  * usage.jsonl. `--ref` adds the reference-based eval (glossary agreement + fact ledger).
  */
-async function evalRun(runId: string, glossaryRunId?: string, withRef = false, glossaryVersion?: number) {
+async function evalRun(runId: string, glossaryRunId?: string, withRef = false, glossaryVersion?: number, withHits = false) {
   const dir = `${RUN_DATA_DIR}/${runId}`;
   const ab = await computeAblation(RUN_DATA_DIR, runId, glossaryRunId, glossaryVersion);
   const { chapterNames, glossaryPath, glossary, base, draft, final } = ab;
@@ -161,6 +161,14 @@ async function evalRun(runId: string, glossaryRunId?: string, withRef = false, g
   console.log(`  banned variants — after review: ${worst(final.stats)}`);
   const ambiguous = ambiguousBannedVariants(glossary.entries);
   console.log(`  banned variants excluded as ambiguous (also another entry's rendering): ${ambiguous.map((x) => `${x.source} "${x.variant}" (= ${x.conflictsWith})`).join(', ') || 'none'}`);
+  if (withHits) {
+    for (const [label, chs] of [['baseline', ab.baseChapters], ['full system (final)', ab.finalChapters]] as const) {
+      const hits = bannedHitDetails(glossary.entries, chs);
+      console.log(`\n  banned hits — ${label} (${hits.length}):`);
+      for (const h of hits) console.log(`    ${h.chapter}:${h.line}  "${h.variant}" counted for ${h.term}${h.suspect ? `  [SUSPECT: ${h.suspect}]` : ''}  — ${h.sentence}`);
+    }
+  }
+  console.log('  Note: banned-variant counting is chapter-scoped (a variant for T counts only in chapters where T occurs) and text-level, so a few hits may still be misattributed; use --hits to list them.');
   console.log('  Note: consistency counts the chosen rendering vs KNOWN banned variants only; the after-review column is enforced by the loop (approval requires zero lint violations), so the before-review column and the baseline drift are the independent evidence.');
 
   if (withRef) await evalRef(runId, gRun, glossary, chapterNames, dir);
@@ -374,8 +382,10 @@ async function main() {
   }
   if (cmd === 'translate' && rest.length >= 2) {
     const detach = rest.includes('--detach');
-    const args = rest.filter((a) => a !== '--detach');
-    return translateBook(args[0], args.slice(1), detach);
+    const intoIdx = rest.indexOf('--into');
+    const into = intoIdx >= 0 ? rest[intoIdx + 1] : undefined;
+    const args = rest.filter((a, i) => a !== '--detach' && (intoIdx < 0 || (i !== intoIdx && i !== intoIdx + 1)));
+    return translateBook(args[0], args.slice(1), detach, into);
   }
   if (cmd === 'wait' && rest[0]) return waitRun(rest[0], rest[1]);
   if (cmd === 'report' && rest[0]) {
@@ -387,10 +397,10 @@ async function main() {
   }
   if (cmd === 'eval' && rest[0]) {
     const a = parseEvalArgs(rest);
-    return evalRun(a.runId, a.glossaryRunId, a.withRef, a.glossaryVersion);
+    return evalRun(a.runId, a.glossaryRunId, a.withRef, a.glossaryVersion, a.withHits);
   }
   if (cmd === 'glossary' && rest[0]) return glossary(rest[0], rest[1]);
-  console.error('usage:\n  cli start <chapter-file> [runId]\n  cli book <chapter-files...> [--stop-after group|glossary]\n  cli translate <glossaryRunId> <chapter-files...> [--detach]\n  cli wait <runId> [glossaryRunId]\n  cli structure <runId>\n  cli add-chapter <runId> <chapter-file>   (incremental mode; glossary grows one version per chapter)\n  cli growth <runId>\n  cli resolve <runId> <source> <rendering> [--unban <variant>] [--same-version] [--note <text>]\n  cli glossary <runId> [version]\n  cli eval <runId> [glossaryRunId] [--ref]\n  cli report <runId> [glossaryRunId]');
+  console.error('usage:\n  cli start <chapter-file> [runId]\n  cli book <chapter-files...> [--stop-after group|glossary]\n  cli translate <glossaryRunId> <chapter-files...> [--detach] [--into <existingRunId>]\n  cli wait <runId> [glossaryRunId]\n  cli structure <runId>\n  cli add-chapter <runId> <chapter-file>   (incremental mode; glossary grows one version per chapter)\n  cli growth <runId>\n  cli resolve <runId> <source> <rendering> [--unban <variant>] [--same-version] [--note <text>]\n  cli glossary <runId> [version]\n  cli eval <runId> [glossaryRunId] [--ref]\n  cli report <runId> [glossaryRunId]');
   process.exit(2);
 }
 

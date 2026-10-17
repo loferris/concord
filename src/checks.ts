@@ -34,6 +34,8 @@ export interface ChapterText {
   name: string;
   /** English text (whole chapter) */
   en: string;
+  /** Chinese source (whole chapter); used to scope banned-variant counting when paragraphs are not aligned. */
+  zh?: string;
   /** Source paragraphs and aligned English paragraphs when available (full system only). */
   paragraphs?: { id: string; zh: string; en: string }[];
 }
@@ -123,6 +125,64 @@ function countSources(hay: string, sources: string[]): Map<string, number> {
   return counts;
 }
 
+/** Does the term (any of its source strings) occur in this chapter's Chinese? Unknown source text counts as yes. */
+function termOccursIn(ch: ChapterText, sources: string[]): boolean {
+  const zh = ch.zh ?? (ch.paragraphs ? ch.paragraphs.map((p) => p.zh).join('\n') : null);
+  if (zh === null) return true;
+  return sources.some((s) => s && zh.includes(s));
+}
+
+export interface BannedHit {
+  chapter: string;
+  /** 1-based line in the English text */
+  line: number;
+  variant: string;
+  term: string;
+  sentence: string;
+  /** Set when the hit looks like it belongs to another term (its paragraph has that term's source but not this one's). */
+  suspect?: string;
+}
+/** Every counted banned hit with its sentence, for checking by eye. Same scoping and masking as termDistribution. */
+export function bannedHitDetails(entries: GlossaryLike[], chapters: ChapterText[]): BannedHit[] {
+  const everyRendering = allRenderings(entries);
+  const out: BannedHit[] = [];
+  for (const ch of chapters) {
+    const lines = ch.en.split('\n');
+    // Paragraph alignment for the suspect check: aligned paragraphs, or blank-line blocks when counts match.
+    const blocks = ch.en.split(/\n\s*\n/);
+    const zhParas = ch.paragraphs?.map((p) => p.zh) ?? (ch.zh ? ch.zh.split(/\n\s*\n|\n/).map((x) => x.trim()).filter(Boolean) : null);
+    const aligned = ch.paragraphs ? ch.paragraphs.map((p) => ({ en: p.en, zh: p.zh })) : zhParas && zhParas.length === blocks.length ? blocks.map((b, i) => ({ en: b, zh: zhParas[i] })) : null;
+    for (const e of entries) {
+      const sources = [e.source, ...e.alias_renderings.map((a) => a.source)];
+      if (!termOccursIn(ch, sources)) continue;
+      const bannedList = countableBanned(e, entries);
+      for (const b of bannedList) {
+        // Mask longer legitimate renderings first, then find this variant's occurrences line by line.
+        let masked = ch.en;
+        for (const r of [...everyRendering].filter((r) => r.length > b.length).sort((x, y) => y.length - x.length)) masked = masked.replace(wordRe(r), (m) => '\u0000'.repeat(m.length));
+        const re = wordRe(b);
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(masked))) {
+          const upto = masked.slice(0, m.index);
+          const line = upto.split('\n').length;
+          const lineText = lines[line - 1] ?? '';
+          const sentence = (lineText.match(new RegExp(`[^.!?。]*${b.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^.!?]*[.!?]?`, 'i')) ?? [lineText])[0].trim();
+          let suspect: string | undefined;
+          // Locate the paragraph by the sentence (a line may hold several paragraphs' text).
+          const para = aligned?.find((p) => sentence && p.en.includes(sentence)) ?? aligned?.find((p) => p.en.includes(lineText.trim()));
+          if (para) {
+            const hasOwn = sources.some((s) => s && para.zh.includes(s));
+            const other = entries.find((o) => o !== e && [o.source, ...o.alias_renderings.map((a) => a.source)].some((s) => s && para.zh.includes(s)));
+            if (!hasOwn && other) suspect = `paragraph has ${other.source}, not ${e.source}`;
+          }
+          out.push({ chapter: ch.name, line, variant: b, term: e.source, sentence: sentence.slice(0, 160), suspect });
+        }
+      }
+    }
+  }
+  return out;
+}
+
 export function termDistribution(entries: GlossaryLike[], chapters: ChapterText[]): TermStat[] {
   const everyRendering = allRenderings(entries);
   const everySource = allSources(entries);
@@ -141,7 +201,8 @@ export function termDistribution(entries: GlossaryLike[], chapters: ChapterText[
     for (const ch of chapters) {
       const counts = countVariants(ch.en, variants);
       for (const r of renderings) renderingHits += counts.get(r) ?? 0;
-      for (const b of bannedList) banned.set(b, (banned.get(b) ?? 0) + (counts.get(b) ?? 0));
+      // Chapter scoping: a banned variant for this term only counts in chapters where the term's source occurs.
+      if (termOccursIn(ch, sources)) for (const b of bannedList) banned.set(b, (banned.get(b) ?? 0) + (counts.get(b) ?? 0));
       if (ch.paragraphs) {
         anyAligned = true;
         for (const p of ch.paragraphs) {

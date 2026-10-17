@@ -1,22 +1,47 @@
 
-== Ablation — run inc-demo-3 (glossary glossary.v3.json from inc-demo-3, 19 terms)
+== Ablation — run inc-demo-3 (glossary glossary.v4.json from inc-demo-3, 19 terms)
   metric                                 baseline (1 prompt)  full, before review    full, after review
-  term consistency (chosen / chosen+banned) 80.2%                99.2%                  99.2%
-  chosen-rendering hits                  89                   131                    131
-  banned-variant hits (terms affected)   22 (5)               1 (1)                  1 (1)
-  mean distinct renderings per term      1.24                 1.21                   1.21
-  paragraph term coverage                n/a (no paragraph ids) 114/115 (99.1%)        114/115 (99.1%)
+  term consistency (chosen / chosen+banned) 82.0%                100.0%                 100.0%
+  chosen-rendering hits                  91                   127                    127
+  banned-variant hits (terms affected)   20 (5)               0 (0)                  0 (0)
+  mean distinct renderings per term      1.24                 1.16                   1.16
+  paragraph term coverage                n/a (no paragraph ids) 114/115 (99.1%)        115/115 (100.0%)
   leftover CJK runs                      0                    0                      0
-  translation cost (USD)                 $0.0023              $0.0053                + $0.0282 review/revise
-  translation cached-token rate          87.6%                15.8%                  50.3%
-  model calls                            3                    3                      5 reviews, 2 revisions
+  translation cost (USD)                 $0.0033              $0.0075                + $0.0393 review/revise
+  translation cached-token rate          63.4%                11.4%                  35.0%
+  model calls                            4                    4                      7 reviews, 3 revisions
   glossary build (USD, calls)            —                    $0.0783 (84)           
-  total cost (USD)                       $0.0023              $0.0836                $0.1118
+  total cost (USD)                       $0.0033              $0.0858                $0.1251
 
-  banned variants — baseline: 周总: Director Zhou×11 | 陆楠: XiaoLu×4 | 师傅: Master×1, Shifu×1, Driver×2 | 师父: Shifu×1, Master×1 | 人工先验: Human Prior×1
-  banned variants — before review: 师傅: Driver×1
-  banned variants — after review: 师傅: Driver×1
+  banned variants — baseline: 周总: Director Zhou×11 | 陆楠: XiaoLu×4 | 师父: Shifu×1, Master×1 | 师傅: Master×1, Shifu×1 | 人工先验: Human Prior×1
+  banned variants — before review: none
+  banned variants — after review: none
   banned variants excluded as ambiguous (also another entry's rendering): 陆楠 "Xiao-lu" (= 陆楠), 浦东机场 "Lujiazui" (= 陆家嘴), 清野生活 "Qingye-Life" (= 清野生活), 人工先验 "Ren Gong Xian-yan" (= 人工先验)
+
+  banned hits — baseline (20):
+    01:17  "XiaoLu" counted for 陆楠  — "Xiaolu, pull all the records from the past week where the operator is 'Night Voyage.
+    01:19  "XiaoLu" counted for 陆楠  — In the six months since she'd joined the company, Shen Che had rarely called her Xiaolu.
+    01:27  "Director Zhou" counted for 周总  — Shen Che sent the spreadsheet to Director Zhou, then added a message: Can we talk for ten minutes tomorrow morning?
+    01:29  "Director Zhou" counted for 周总  — Director Zhou's reply popped up almost instantly, as if she hadn't been asleep either: Eight o'clock.
+    02:37  "XiaoLu" counted for 陆楠  — As for Xiaolu—tell her to stop pulling logs.
+    02:3  "Director Zhou" counted for 周总  — Director Zhou sat in the one closest to the door, an untouched Americano placed in front of her.
+    02:13  "Director Zhou" counted for 周总  — Director Zhou said nothing.
+    02:19  "Director Zhou" counted for 周总  — Director Zhou rotated her coffee cup half a turn.
+    02:29  "Director Zhou" counted for 周总  — "Director Zhou, if it's a model anomaly, then why does Night Voyage only change labels between one and two in the morning?
+    02:35  "Director Zhou" counted for 周总  — Director Zhou glanced at him.
+    02:37  "Director Zhou" counted for 周总  — " Director Zhou stood up.
+    02:47  "Director Zhou" counted for 周总  — " Director Zhou closed the door behind her.
+    03:13  "XiaoLu" counted for 陆楠  — "Xiaolu, this matter stops with you.
+    03:11  "Human Prior" counted for 人工先验  — There's an interface called 'Human Prior' — in theory, only the risk control lead has access.
+    03:35  "Shifu" counted for 师父  — "Shifu.
+    03:1  "Master" counted for 师父  — Chapter 3: The Master
+    03:1  "Master" counted for 师傅  [SUSPECT: paragraph has 师父, not 师傅]  — Chapter 3: The Master
+    03:35  "Shifu" counted for 师傅  [SUSPECT: paragraph has 沈澈, not 师傅]  — "Shifu.
+    03:11  "Director Zhou" counted for 周总  — "Director Zhou.
+    03:53  "Director Zhou" counted for 周总  — Tomorrow morning at eight, we go see Director Zhou.
+
+  banned hits — full system (final) (0):
+  Note: banned-variant counting is chapter-scoped (a variant for T counts only in chapters where T occurs) and text-level, so a few hits may still be misattributed; use --hits to list them.
   Note: consistency counts the chosen rendering vs KNOWN banned variants only; the after-review column is enforced by the loop (approval requires zero lint violations), so the before-review column and the baseline drift are the independent evidence.
 
 == Reference eval (ref/english-reference.md; read by the eval only)
@@ -35,12 +60,21 @@
     ✗ 夜航: ours "Ye Hang" (agreement) vs reference "Night Flight"
     ✗ 复核组: ours "the Review Group" (agreement) vs reference "Review Team"
     ✗ 灰名单: ours "gray list" (agreement) vs reference "grey list"
-  glossary v3 (used by this run): 10/19 reference terms match; not in our glossary: 观澜数据, 风控负责人, 看到不该看的，就是我们的工作。
+  glossary v3: 10/19 reference terms match; not in our glossary: 观澜数据, 风控负责人, 看到不该看的，就是我们的工作。
     ✗ 沈哥: ours "Shen Ge" (agreement (alias of 沈澈)) vs reference "Shen" / "boss"
     ✗ 小鹿: ours "Xiao Lu" (agreement (alias of 陆楠)) vs reference "Lu" / "kid"
     ✗ 周总: ours "Zhou Zong" (agreement) vs reference "Director Zhou" / "Ms. Zhou"
     ✗ 师父: ours "Shi Fu" (terminologist) vs reference "mentor" / "Shifu"
     ✗ 师傅: ours "Shi Fu" (agreement) vs reference "driver" / "sir"
+    ✗ 夜航: ours "Ye Hang" (agreement) vs reference "Night Flight"
+    ✗ 复核组: ours "the Review Group" (agreement) vs reference "Review Team"
+    ✗ 灰名单: ours "gray list" (agreement) vs reference "grey list"
+    ✗ 人工先验: ours "Ren Gong Xian Yan" (agreement) vs reference "manual prior"
+  glossary v4 (used by this run): 11/19 reference terms match — includes 1 human resolution(s), made by the reference's author; not in our glossary: 观澜数据, 风控负责人, 看到不该看的，就是我们的工作。
+    ✗ 沈哥: ours "Shen Ge" (agreement (alias of 沈澈)) vs reference "Shen" / "boss"
+    ✗ 小鹿: ours "Xiao Lu" (agreement (alias of 陆楠)) vs reference "Lu" / "kid"
+    ✗ 周总: ours "Zhou Zong" (agreement) vs reference "Director Zhou" / "Ms. Zhou"
+    ✗ 师父: ours "Shi Fu" (terminologist) vs reference "mentor" / "Shifu"
     ✗ 夜航: ours "Ye Hang" (agreement) vs reference "Night Flight"
     ✗ 复核组: ours "the Review Group" (agreement) vs reference "Review Team"
     ✗ 灰名单: ours "gray list" (agreement) vs reference "grey list"

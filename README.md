@@ -23,14 +23,19 @@ Same DeepSeek writer in every column; glossary of 13 terms; 3 chapters (`results
 
 | | one-prompt baseline | full system, before review | full system, after review |
 |---|---|---|---|
-| term consistency (chosen vs known banned variants) | 78.4% | 99.2% | 99.2% |
-| banned-variant hits | 25 across 6 terms | 1 | 1 |
+| term consistency (chosen vs known banned variants) | 80.5% | 100% | 100% |
+| banned-variant hits | 22 across 6 terms | 0 | 0 |
 | paragraph term coverage | n/a | 109/109 | 109/109 |
 | total cost | $0.0023 | $0.058 | $0.083 |
 
 Incremental mode (chapters arrive one at a time, the glossary grows v1 → v2 → v3, `results/incremental-inc-demo-3/`):
-10 → 14 → 19 entities; 阿澈 attached as an alias of 沈澈 in v3; 师傅 kept separate from 师父. Details and caveats
-under *Built today* below; `results/*/report.html` are the self-contained reports.
+10 → 14 → 19 entities; 阿澈 attached as an alias of 沈澈 in v3; 师傅 kept separate from 师父 (then resolved by a
+human to "driver" → v4; chapter 3 re-translated and approved). Baseline 82.0% vs full 100% term consistency,
+coverage 115/115. Details and caveats under *Built today* below; `results/*/report.html` are the reports.
+
+Banned-variant counting is chapter-scoped (a variant for term T counts only in chapters where T's source occurs)
+and text-level, so a few baseline hits may still be misattributed; `cli eval --hits` lists every hit with its
+sentence and flags suspects.
 
 ## Run
 
@@ -69,8 +74,6 @@ and is read by the eval only (a test enforces it). See `docs/prompts.md` for eve
 
 ## Open items
 
-- `inc-demo-3` glossary v3 has one `needs_human` entry: 师傅 was proposed as "Shi Fu", colliding with the frozen
-  师父. `cli resolve inc-demo-3 师傅 driver` would clear it (the reference agrees with "driver").
 - The attempt-counter model fallback cannot tell a 429 storm from a model loop; carrying the last failure type in
   heartbeat details would fix it (`docs/temporal.md`).
 - Reviews cost ~9k reasoning tokens each; `reasoning_effort: low` on GLM is untested.
@@ -147,19 +150,18 @@ and is read by the eval only (a test enforces it). See `docs/prompts.md` for eve
 
     | metric | baseline (1 prompt) | full, before review | full, after review |
     |---|---|---|---|
-    | term consistency (chosen / chosen+banned) | 78.4% | 99.2% | 99.2% |
-    | banned-variant hits (terms affected) | 25 (6) | 1 (1) | 1 (1) |
+    | term consistency (chosen / chosen+banned) | 80.5% | 100% | 100% |
+    | banned-variant hits (terms affected) | 22 (6) | 0 | 0 |
     | paragraph term coverage | n/a | 109/109 | 109/109 |
     | leftover CJK | 0 | 0 | 0 |
     | translation cost | $0.0023 | $0.0050 | + $0.0248 review/revise |
     | cached-token rate on translation | 87.6%* | 39.9% | 60.5% |
     | total cost | $0.0023 | $0.058 | $0.083 |
 
-    Baseline drift: 夜航 "Night Voyage"×10 vs glossary "Ye Hang", 灰名单 "gray list"×6, 师傅 "master"/"mentor"×4,
-    沈澈 → bare "Shen"×3. The one remaining full-system hit is "mentor" used for 师父 in narration, which the
-    proposers had banned for the homophone 师傅; "mentor" is not any entry's rendering (师父 → "Shifu"), so the
-    ambiguity exclusion does not apply and it stays counted: a limitation of the banned-variant metric, not a
-    term error.
+    Baseline drift: 夜航 "Night Voyage"×10 vs glossary "Ye Hang", 灰名单 "gray list"×6, 沈澈 → bare "Shen"×3,
+    白名单 "white list", 复核 "check". Two of the 22 baseline hits are flagged suspect by `--hits` ("master" in
+    the chapter-3 title is 师父's paragraph; "I checked" is the verb). Before chapter scoping the full system
+    showed one hit, "mentor" in chapter 2 where 师傅 never occurs; scoping removed it.
     \* The baseline prompt is byte-identical across runs, so it hits the cache built by earlier runs.
 
     **How to read the columns.** Term consistency counts the chosen rendering against *known banned variants*
@@ -203,13 +205,18 @@ and is read by the eval only (a test enforces it). See `docs/prompts.md` for eve
 
     In v3, **阿澈 is attached as an alias of 沈澈** (rendered "A Che") and **师傅 is a separate entity from 师父**.
     Both were rendered "Shi Fu" by their proposers, so the frozen-glossary collision rule flagged 师傅
-    `needs_human` rather than letting a new term collide with an old one. Chapter 2 cost less than chapter 1
+    `needs_human` rather than letting a new term collide with an old one. The human resolved 师傅 → "driver"
+    (`cli resolve inc-demo-3 师傅 driver` → v4) and chapter 3 was re-translated against v4 and approved after
+    two review rounds. Chapter 2 cost less than chapter 1
     (22 vs 35 calls); chapter 3 did not (27 calls, $0.029): one grouper call per new item that includes every
     existing entity, five genuinely new terms (a new character's title, two places, new jargon), one alias
-    decision, and 429 retries whose tokens are still billed. Eval against v3: 99.2% term consistency vs 80.2%
-    baseline, coverage 114/115, total $0.11 (glossary $0.078) vs $0.083 for the whole-book run; reference
-    glossary agreement 10/19 (the single-chapter extractor keeps single-occurrence fixed terms, so 19 terms
-    vs 13 in batch, including 黑名单, 陆家嘴, 浦东机场, 人工先验).
+    decision, and 429 retries whose tokens are still billed. Eval against v4 (chapter-scoped banned counting):
+    100% term consistency vs 82.0% baseline, coverage 115/115, total $0.125 including the chapter-3
+    re-translation (glossary $0.078) vs $0.083 for the whole-book run; reference glossary agreement 10/19 (the
+    single-chapter extractor keeps single-occurrence fixed terms, so 19 terms vs 13 in batch, including 黑名单,
+    陆家嘴, 浦东机场, 人工先验). Note that 8 of the 20 baseline hits are "Director Zhou", which this run's agents
+    froze as "Zhou Zong" and banned; the batch run's agents chose the opposite, so that part of the baseline's
+    penalty is a debatable agent decision rather than drift.
 - [x] **Milestone 4a: kill -9 / resume.** `scripts/kill-resume.sh <glossaryRunId>` (live demo): starts a run,
   kills every worker process mid-model-call, shows Temporal marking the activity "Heartbeat timeout" and
   scheduling attempt 2 with no worker alive, restarts the worker, and the run completes from there.

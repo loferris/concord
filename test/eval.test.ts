@@ -45,10 +45,10 @@ describe('fact ledger', () => {
 
 describe('parseEvalArgs', () => {
   it('keeps the runId when --ref is given without --glossary-version', () => {
-    expect(parseEvalArgs(['run-a', '--ref'])).toEqual({ runId: 'run-a', glossaryRunId: undefined, withRef: true, glossaryVersion: undefined });
-    expect(parseEvalArgs(['run-a', 'gloss-b', '--ref'])).toEqual({ runId: 'run-a', glossaryRunId: 'gloss-b', withRef: true, glossaryVersion: undefined });
+    expect(parseEvalArgs(['run-a', '--ref'])).toEqual({ runId: 'run-a', glossaryRunId: undefined, withRef: true, glossaryVersion: undefined, withHits: false });
+    expect(parseEvalArgs(['run-a', 'gloss-b', '--ref', '--hits'])).toEqual({ runId: 'run-a', glossaryRunId: 'gloss-b', withRef: true, glossaryVersion: undefined, withHits: true });
   });
   it('parses --glossary-version anywhere', () => {
-    expect(parseEvalArgs(['--glossary-version', '3', 'run-a', '--ref'])).toEqual({ runId: 'run-a', glossaryRunId: undefined, withRef: true, glossaryVersion: 3 });
+    expect(parseEvalArgs(['--glossary-version', '3', 'run-a', '--ref'])).toEqual({ runId: 'run-a', glossaryRunId: undefined, withRef: true, glossaryVersion: 3, withHits: false });
   });
 });
