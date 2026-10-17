@@ -133,6 +133,23 @@ See `docs/temporal.md` for how the workflows, retries, fallbacks and queues inte
   cited, calls, cost); translate + review that chapter against the new version. `cli growth <runId>` prints
   the growth table. Unlike batch debates, which run in parallel and cannot see each other, incremental
   debates always see the frozen glossary, so new terms cannot collide with old ones.
+  - **Demo run `inc-demo-3`** (3:28 PM): ch1 → v1, ch2 → v2, ch3 → v3.
+
+    | version | chapter | entities | new | aliases | debates | calls | cost | precedents cited |
+    |---|---|---|---|---|---|---|---|---|
+    | v1 | 01 | 10 | 10 | 0 | 0 | 35 | $0.028 | — |
+    | v2 | 02 | 14 | 4 | 0 | 1 | 22 | $0.021 | 沈澈, 周总, 夜航 |
+    | v3 | 03 | 19 | 5 | 1 (阿澈→沈澈) | 1 | 27 | $0.029 | 沈澈, 师父, 夜航, 陆家嘴, 白名单, 陆楠 |
+
+    In v3, **阿澈 is attached as an alias of 沈澈** (rendered "A Che") and **师傅 is a separate entity from 师父**.
+    Both were rendered "Shi Fu" by their proposers, so the frozen-glossary collision rule flagged 师傅
+    `needs_human` rather than letting a new term collide with an old one. Chapter 2 cost less than chapter 1
+    (22 vs 35 calls); chapter 3 did not (27 calls, $0.029): one grouper call per new item that includes every
+    existing entity, five genuinely new terms (a new character's title, two places, new jargon), one alias
+    decision, and 429 retries whose tokens are still billed. Eval against v3: 99.2% term consistency vs 80.2%
+    baseline, coverage 114/115, total $0.11 (glossary $0.078) vs $0.083 for the whole-book run; reference
+    glossary agreement 10/19 (the single-chapter extractor keeps single-occurrence fixed terms, so 19 terms
+    vs 13 in batch, including 黑名单, 陆家嘴, 浦东机场, 人工先验).
 - [x] **Milestone 4a: kill -9 / resume.** `scripts/kill-resume.sh <glossaryRunId>` (live demo): starts a run,
   kills every worker process mid-model-call, shows Temporal marking the activity "Heartbeat timeout" and
   scheduling attempt 2 with no worker alive, restarts the worker, and the run completes from there.
