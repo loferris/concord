@@ -22,6 +22,10 @@ export interface ChatJsonRequest {
   temperature?: number;
   /** Nemotron models think by default; translator runs with thinking off. */
   enableThinking?: boolean;
+  /** Extra provider-specific body fields (e.g. reasoning_effort). Merged last. */
+  extra?: Record<string, unknown>;
+  /** Extra chat_template_kwargs (e.g. Nemotron low_effort). */
+  templateKwargs?: Record<string, unknown>;
 }
 
 export interface ChatJsonRaw {
@@ -41,7 +45,7 @@ function getClient(): OpenAI {
       baseURL: CRUSOE_BASE_URL,
       apiKey: process.env.CRUSOE_API_KEY,
       maxRetries: 0,
-      timeout: 180_000,
+      timeout: Number(process.env.LLM_TIMEOUT_MS ?? 180_000),
     });
   }
   return client;
@@ -87,7 +91,8 @@ async function realChatJson(req: ChatJsonRequest, schema: ZodType<unknown>): Pro
     temperature: req.temperature ?? 0.2,
     seed: req.seed,
     // Non-standard but supported by Crusoe (listed in /v1/models supported_parameters).
-    chat_template_kwargs: thinkingKwargs(req.model, req.enableThinking ?? false),
+    chat_template_kwargs: { ...thinkingKwargs(req.model, req.enableThinking ?? false), ...(req.templateKwargs ?? {}) },
+    ...(req.extra ?? {}),
   };
   let completion: OpenAI.Chat.Completions.ChatCompletion;
   let headers: Headers | undefined;
