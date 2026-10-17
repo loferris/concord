@@ -38,6 +38,29 @@ export interface ChapterText {
   paragraphs?: { id: string; zh: string; en: string }[];
 }
 
+/** A banned variant that is another entry's rendering or alias rendering is ambiguous at text level. */
+export interface AmbiguousBanned {
+  source: string;
+  variant: string;
+  /** which entry legitimately renders as this variant */
+  conflictsWith: string;
+}
+/** Banned variants that are excluded from counting because another glossary entry legitimately uses them. */
+export function ambiguousBannedVariants(entries: GlossaryLike[]): AmbiguousBanned[] {
+  const owners = new Map<string, string>();
+  for (const e of entries) for (const r of [e.rendering, ...e.alias_renderings.map((a) => a.rendering)]) if (r && !owners.has(normRendering(r))) owners.set(normRendering(r), e.source);
+  const out: AmbiguousBanned[] = [];
+  for (const e of entries) for (const b of e.banned) {
+    const owner = owners.get(normRendering(b));
+    if (owner) out.push({ source: e.source, variant: b, conflictsWith: owner });
+  }
+  return out;
+}
+function countableBanned(e: GlossaryLike, entries: GlossaryLike[]): string[] {
+  const ambiguous = new Set(ambiguousBannedVariants(entries).filter((a) => a.source === e.source).map((a) => normRendering(a.variant)));
+  return e.banned.filter((b) => !ambiguous.has(normRendering(b)));
+}
+
 export interface TermStat {
   source: string;
   /** Occurrences of the source (and aliases) in the Chinese */
@@ -112,7 +135,7 @@ export function termDistribution(entries: GlossaryLike[], chapters: ChapterText[
     let covered = 0;
     let total = 0;
     let anyAligned = false;
-    const bannedList = e.banned.filter((b) => !everyRendering.some((r) => r.toLowerCase() === b.toLowerCase()));
+    const bannedList = countableBanned(e, entries);
     // Mask every glossary rendering (all entries) before counting, so "audit" inside "Audit Team" is not a hit.
     const variants = [...everyRendering, ...bannedList];
     for (const ch of chapters) {
@@ -216,7 +239,7 @@ export function lintParagraphs(entries: GlossaryLike[], paragraphs: { id: string
     const sc = countSources(p.zh, everySource);
     for (const e of entries) {
       const renderings = [e.rendering, ...e.alias_renderings.map((a) => a.rendering)].filter(Boolean);
-      const bannedList = e.banned.filter((b) => !everyRendering.some((r) => r.toLowerCase() === b.toLowerCase()));
+      const bannedList = countableBanned(e, entries);
       const c = countVariants(p.en, [...everyRendering, ...bannedList]);
       for (const b of bannedList) if ((c.get(b) ?? 0) > 0) out.push({ paragraphId: p.id, kind: 'banned_variant', source: e.source, detail: `uses banned "${b}" for ${e.source}; glossary rendering is "${e.rendering}"` });
       const inZh = [e.source, ...e.alias_renderings.map((a) => a.source)].reduce((a, s) => a + (sc.get(s) ?? 0), 0);

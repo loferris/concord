@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { factCounts, glossaryAgreement, parseReferenceGlossary } from '../src/eval';
+import { factCounts, glossaryAgreement, parseEvalArgs, parseReferenceGlossary } from '../src/eval';
 
 const md = `## Glossary the agents should converge on
 
@@ -40,5 +40,15 @@ describe('fact ledger', () => {
   it('counts the facts with number and word forms', () => {
     const c = factCounts('3,412 accounts moved between 1 and 2 a.m.; 72 hours; two hundred million users; nine years; three years; two months; about 300 accounts; at 11 p.m.; at 8 a.m.');
     expect(Object.values(c).every((v) => v >= 1)).toBe(true);
+  });
+});
+
+describe('parseEvalArgs', () => {
+  it('keeps the runId when --ref is given without --glossary-version', () => {
+    expect(parseEvalArgs(['run-a', '--ref'])).toEqual({ runId: 'run-a', glossaryRunId: undefined, withRef: true, glossaryVersion: undefined });
+    expect(parseEvalArgs(['run-a', 'gloss-b', '--ref'])).toEqual({ runId: 'run-a', glossaryRunId: 'gloss-b', withRef: true, glossaryVersion: undefined });
+  });
+  it('parses --glossary-version anywhere', () => {
+    expect(parseEvalArgs(['--glossary-version', '3', 'run-a', '--ref'])).toEqual({ runId: 'run-a', glossaryRunId: undefined, withRef: true, glossaryVersion: 3 });
   });
 });

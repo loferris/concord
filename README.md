@@ -157,11 +157,15 @@ and is read by the eval only (a test enforces it). See `docs/prompts.md` for eve
 
     Baseline drift: 夜航 "Night Voyage"×10 vs glossary "Ye Hang", 灰名单 "gray list"×6, 师傅 "master"/"mentor"×4,
     沈澈 → bare "Shen"×3. The one remaining full-system hit is "mentor" used for 师父 in narration, which the
-    proposers had banned for the homophone 师傅: a limitation of the banned-variant metric, not a term error.
+    proposers had banned for the homophone 师傅; "mentor" is not any entry's rendering (师父 → "Shifu"), so the
+    ambiguity exclusion does not apply and it stays counted: a limitation of the banned-variant metric, not a
+    term error.
     \* The baseline prompt is byte-identical across runs, so it hits the cache built by earlier runs.
 
     **How to read the columns.** Term consistency counts the chosen rendering against *known banned variants*
-    only. The after-review column is enforced by the loop (approval requires zero lint violations), so the
+    only. A banned variant that is also another entry's rendering or alias rendering (e.g. 浦东机场 banning
+    "Lujiazui", which is 陆家嘴's rendering) is ambiguous at text level and is excluded from the count; the eval
+    lists every excluded variant. After this exclusion the numbers above did not change. The after-review column is enforced by the loop (approval requires zero lint violations), so the
     before-review column and the baseline drift are the independent evidence. Chapter 1 of this run ended
     "flagged" because the lint demanded the exact word "review" where the text says "manually reviewed"; the
     checker now accepts inflections of lowercase single-word terms, and the table above is the recomputed eval.

@@ -13,7 +13,7 @@ describe('nestedTermViolations', () => {
   });
 });
 
-import { leftoverCJK, renderingCollisions, summarize, termDistribution } from '../src/checks';
+import { ambiguousBannedVariants, leftoverCJK, lintParagraphs, renderingCollisions, summarize, termDistribution } from '../src/checks';
 
 describe('termDistribution and friends', () => {
   const glossary = [
@@ -59,5 +59,23 @@ describe('inflections', () => {
     expect(rev.bannedHits).toEqual([{ variant: 'audit', count: 1 }]);
     expect(rev.coverage).toEqual({ covered: 1, total: 1 });
     expect(shen.renderingHits).toBe(0);
+  });
+});
+
+describe('ambiguous banned variants', () => {
+  const g = [
+    { source: '师父', rendering: 'Master', alias_renderings: [], banned: ['Shifu'] },
+    { source: '师傅', rendering: 'driver', alias_renderings: [], banned: ['master', 'mentor', 'sir'] },
+    { source: '顾衡', rendering: 'Gu Heng', alias_renderings: [{ source: '师父', rendering: 'the Master' }], banned: [] },
+  ];
+  it('lists a banned variant that is another entry\'s rendering or alias rendering (normalized)', () => {
+    expect(ambiguousBannedVariants(g)).toEqual([{ source: '师傅', variant: 'master', conflictsWith: '师父' }]);
+  });
+  it('does not count the ambiguous variant against the term, but still counts the others', () => {
+    const text = 'His master nodded. The mentor smiled. "Sir," said the driver.';
+    const [, shifu] = termDistribution(g, [{ name: 'x', en: text }]);
+    expect(shifu.bannedHits).toEqual([{ variant: 'mentor', count: 1 }, { variant: 'sir', count: 1 }]);
+    const lint = lintParagraphs(g, [{ id: 'p1', zh: '师傅说。', en: 'His master nodded, said the driver.' }]);
+    expect(lint.filter((v) => v.kind === 'banned_variant')).toEqual([]);
   });
 });

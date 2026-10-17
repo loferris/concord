@@ -1,7 +1,7 @@
 // Static HTML report generated from run files only (no network, no JS framework).
 import { readFile, readdir } from 'node:fs/promises';
 import { computeAblation, factCounts, glossaryAgreement, loadBaselineChapters, referenceEnglish, referenceGlossary, type Ablation } from './eval';
-import type { CheckSummary } from './checks';
+import { ambiguousBannedVariants, type CheckSummary } from './checks';
 import type { Glossary, GlossaryEntry } from './schemas';
 
 const esc = (s: unknown) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -124,6 +124,7 @@ blockquote{margin:.6em 0;padding:.6em 1em;border-left:4px solid var(--line);back
 <tr><td>translation cost</td><td>${usd(C.baseline.usd)}</td><td>${usd(C.translator.usd)}</td><td>+ ${usd(C.reviewer.usd + C.reviser.usd)} review/revise (${C.reviewer.calls} reviews, ${C.reviser.calls} revisions)</td></tr>
 <tr><td>cached-token rate on translation</td><td>${pct(C.baseline.cached, C.baseline.prompt)}</td><td>${pct(C.translator.cached, C.translator.prompt)}</td><td>${pct(C.translator.cached + C.reviser.cached, C.translator.prompt + C.reviser.prompt)}</td></tr>
 </tbody></table>
+<p class="small muted">Banned variants excluded as ambiguous (also another entry's rendering): ${esc(ambiguousBannedVariants(g.entries).map((x) => `${x.source} “${x.variant}” (= ${x.conflictsWith})`).join(', ') || 'none')}.</p>
 <p class="small muted">Consistency counts the chosen rendering against <em>known banned variants</em> only. The after-review column is enforced by the loop (approval requires zero lint violations), so the before-review column and the baseline drift are the independent evidence. The same DeepSeek model wrote every column.</p>
 <h3>Where the one-prompt baseline drifted</h3>
 <table><thead><tr><th>term</th><th>glossary rendering</th><th>baseline wrote</th></tr></thead><tbody>

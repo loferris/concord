@@ -222,3 +222,18 @@ export async function computeAblation(runDataDir: string, runId: string, glossar
     },
   };
 }
+
+/** `cli eval <runId> [glossaryRunId] [--ref] [--glossary-version N]` */
+export function parseEvalArgs(rest: string[]): { runId: string; glossaryRunId?: string; withRef: boolean; glossaryVersion?: number } {
+  const positional: string[] = [];
+  let withRef = false;
+  let glossaryVersion: number | undefined;
+  for (let i = 0; i < rest.length; i++) {
+    const a = rest[i];
+    if (a === '--ref') withRef = true;
+    else if (a === '--glossary-version') glossaryVersion = Number(rest[++i]);
+    else positional.push(a);
+  }
+  if (!positional[0]) throw new Error('usage: cli eval <runId> [glossaryRunId] [--ref] [--glossary-version N]');
+  return { runId: positional[0], glossaryRunId: positional[1], withRef, glossaryVersion };
+}

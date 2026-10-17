@@ -16,6 +16,7 @@
   banned variants — baseline: 周总: Director Zhou×11 | 陆楠: XiaoLu×4 | 师傅: Master×1, Shifu×1, Driver×2 | 师父: Shifu×1, Master×1 | 人工先验: Human Prior×1
   banned variants — before review: 师傅: Driver×1
   banned variants — after review: 师傅: Driver×1
+  banned variants excluded as ambiguous (also another entry's rendering): 陆楠 "Xiao-lu" (= 陆楠), 浦东机场 "Lujiazui" (= 陆家嘴), 清野生活 "Qingye-Life" (= 清野生活), 人工先验 "Ren Gong Xian-yan" (= 人工先验)
   Note: consistency counts the chosen rendering vs KNOWN banned variants only; the after-review column is enforced by the loop (approval requires zero lint violations), so the before-review column and the baseline drift are the independent evidence.
 
 == Reference eval (ref/english-reference.md; read by the eval only)

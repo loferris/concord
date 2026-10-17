@@ -5,10 +5,10 @@ import { loadEnv } from './env';
 import { TASK_QUEUES, RUN_DATA_DIR, PRICING } from './config';
 import type { BookWorkflowResult, ChapterWorkflowResult, TranslationPhaseResult } from './workflows';
 import type { CheckSummary } from './checks';
-import { nestedTermViolations, renderingCollisions } from './checks';
+import { ambiguousBannedVariants, nestedTermViolations, renderingCollisions } from './checks';
 import { normRendering } from './normalize';
 import { writeJsonAtomic } from './activities/io';
-import { computeAblation, factCounts, glossaryAgreement, loadBaselineChapters, loadFullChapters, referenceEnglish, referenceGlossary } from './eval';
+import { computeAblation, parseEvalArgs, factCounts, glossaryAgreement, loadBaselineChapters, loadFullChapters, referenceEnglish, referenceGlossary } from './eval';
 import { buildReport } from './report';
 import { writeAtomic } from './activities/io';
 import type { Glossary } from './schemas';
@@ -159,6 +159,8 @@ async function evalRun(runId: string, glossaryRunId?: string, withRef = false, g
   console.log(`\n  banned variants — baseline: ${worst(base.stats)}`);
   console.log(`  banned variants — before review: ${worst(draft.stats)}`);
   console.log(`  banned variants — after review: ${worst(final.stats)}`);
+  const ambiguous = ambiguousBannedVariants(glossary.entries);
+  console.log(`  banned variants excluded as ambiguous (also another entry's rendering): ${ambiguous.map((x) => `${x.source} "${x.variant}" (= ${x.conflictsWith})`).join(', ') || 'none'}`);
   console.log('  Note: consistency counts the chosen rendering vs KNOWN banned variants only; the after-review column is enforced by the loop (approval requires zero lint violations), so the before-review column and the baseline drift are the independent evidence.');
 
   if (withRef) await evalRef(runId, gRun, glossary, chapterNames, dir);
@@ -384,11 +386,8 @@ async function main() {
     return;
   }
   if (cmd === 'eval' && rest[0]) {
-    const withRef = rest.includes('--ref');
-    const gvIdx = rest.indexOf('--glossary-version');
-    const gv = gvIdx >= 0 ? Number(rest[gvIdx + 1]) : undefined;
-    const args = rest.filter((a, i) => a !== '--ref' && i !== gvIdx && i !== gvIdx + 1);
-    return evalRun(args[0], args[1], withRef, gv);
+    const a = parseEvalArgs(rest);
+    return evalRun(a.runId, a.glossaryRunId, a.withRef, a.glossaryVersion);
   }
   if (cmd === 'glossary' && rest[0]) return glossary(rest[0], rest[1]);
   console.error('usage:\n  cli start <chapter-file> [runId]\n  cli book <chapter-files...> [--stop-after group|glossary]\n  cli translate <glossaryRunId> <chapter-files...> [--detach]\n  cli wait <runId> [glossaryRunId]\n  cli structure <runId>\n  cli add-chapter <runId> <chapter-file>   (incremental mode; glossary grows one version per chapter)\n  cli growth <runId>\n  cli resolve <runId> <source> <rendering> [--unban <variant>] [--same-version] [--note <text>]\n  cli glossary <runId> [version]\n  cli eval <runId> [glossaryRunId] [--ref]\n  cli report <runId> [glossaryRunId]');
