@@ -18,7 +18,7 @@ const SPECS: Record<string, Spec> = {
   glossary: { file: 'glossary.txt', label: 'Glossary: human decisions marked ✎', cmd: 'cli glossary', highlight: '✎|driver', rows: 14 },
   incremental: { file: 'incremental.txt', label: 'The glossary grows: one version per chapter', cmd: 'cli growth', highlight: '阿澈|师傅|alias|needs_human' },
   kill: { file: 'kill-resume.txt', label: 'kill -9 mid-run, then resume', cmd: 'scripts/kill-resume.sh', highlight: 'kill|Heartbeat timeout|attempt 2|restart|resum|completed', rows: 20, reveal: true, images: '^temporal-[23].*\\.png$' },
-  eval: { file: 'eval.txt', label: 'Same writer model, with and without the team', cmd: 'cli eval --ref', highlight: 'glossary adherence|banned' , rows: 14 },
+  eval: { file: 'eval.txt', label: 'Same writer model, with and without the team', cmd: 'cli eval --ref', highlight: 'glossary adherence|term consistency|banned' , rows: 14 },
 };
 
 const stripAnsi = (t: string) => t.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '').replace(/\r(?!\n)/g, '\n');
