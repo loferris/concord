@@ -3,7 +3,8 @@
 An agent team that first agrees on a glossary (its shared brain), then translates a Chinese novel into
 English consistently. Temporal orchestrates the agents; models run on Crusoe Managed Inference.
 Built in one day at the Crusoe × Cerebral Valley Recursive Agents Hackathon (Oct 17, 2026), problem statement
-**Shared Brain**.
+**Shared Brain**. All code in this repository was written on Oct 17, 2026 with coding agents (Claude Code); the
+first commit is 11:00 PDT.
 
 **Nemotron decides. DeepSeek writes. GLM checks.** Every glossary decision (grouping, policies, three blind
 proposals, critique, final ruling) is made by Nemotron; DeepSeek handles the Chinese text (tagging, translation);
@@ -19,27 +20,36 @@ Temporal makes the whole run durable: kill the worker mid-call and it resumes.
 
 ## Headline result
 
-Same DeepSeek writer in every column; glossary of 13 terms; 3 chapters (`results/batch-20261017-213120-j30v/`):
+Canonical run: **incremental mode, `inc-demo-3`**, glossary v4 (19 terms; chapters arrived one at a time, the
+glossary grew v1 → v2 → v3, then one human resolution → v4). Same DeepSeek writer in every column; 3 chapters.
+Files: `results/incremental-inc-demo-3/` (`report.html`, `eval.txt`, glossaries, translations).
 
 | | one-prompt baseline | full system, before review | full system, after review |
 |---|---|---|---|
-| glossary adherence (chosen vs known banned variants) | 80.5% | 100% | 100% |
-| banned-variant hits | 22 across 6 terms | 0 | 0 |
-| cross-chapter drift (terms rendered differently across chapters) | 3 | 0 | 0 |
-| paragraph term coverage | n/a | 109/109 | 109/109 |
-| total cost | $0.0023 | $0.058 | $0.083 |
+| glossary adherence (chosen vs known banned variants) | 82.0% | 100% | 100% |
+| banned-variant hits | 20 across 5 terms | 0 | 0 |
+| cross-chapter drift (terms rendered differently across chapters) | 0 by known variants; 1 with the reference's alternates (师父: mentor in ch. 2, Master/Shifu in ch. 3) | 0 | 0 by known variants |
+| paragraph term coverage | n/a | 114/115 | 115/115 |
+| leftover Chinese | 0 | 0 | 0 |
+| facts ledger (vs reference) | 9/9 | — | 9/9 |
+| total cost | $0.0033 | $0.086 | $0.125 |
 
-Incremental mode (chapters arrive one at a time, the glossary grows v1 → v2 → v3, `results/incremental-inc-demo-3/`):
-10 → 14 → 19 entities; 阿澈 attached as an alias of 沈澈 in v3; 师傅 kept separate from 师父 (then resolved by a
-human to "driver" → v4; chapter 3 re-translated and approved). Baseline 82.0% vs full 100% glossary adherence,
-coverage 115/115. Details and caveats under *Built today* below; `results/*/report.html` are the reports.
+Growth: 10 → 14 → 19 entities over three chapters; 阿澈 attached as an alias of 沈澈 in v3; 师傅 kept separate from
+师父 (flagged by the collision rule, resolved by a human to "driver" → v4; chapter 3 re-translated and approved).
+
+Whole-book (batch) run for comparison, `results/batch-20261017-213120-j30v/`, glossary v3 of 13 terms: baseline
+80.5% adherence with 22 banned hits and 3 drifting terms (白名单 whitelist/white list, 复核 review/check, 沈澈
+Shen Che/bare Shen); full system 100%, 0 hits, 0 drift, 109/109 coverage; $0.0023 vs $0.083.
 
 Glossary adherence measures agreement with the decided glossary, so the baseline loses points for consistent but
 different choices such as "Night Voyage". Cross-chapter drift is the number of terms whose rendering changes
-between chapters (batch baseline: 白名单 whitelist/white list, 复核 review/check, 沈澈 Shen Che/bare Shen). Three
-chapters is too short for heavy drift; that is what the book-scale design is for. Banned-variant counting is
-chapter-scoped and text-level, so a few baseline hits may still be misattributed; `cli eval --hits` lists every
-hit with its sentence and flags suspects.
+between chapters. Three chapters is too short for heavy drift; that is what the book-scale design is for.
+Banned-variant counting is chapter-scoped and text-level, so a few baseline hits may still be misattributed;
+`cli eval --hits` lists every hit with its sentence and flags suspects.
+
+**Judges without a Crusoe key:** everything above is reproducible from the committed `results/` folder (open
+`results/*/report.html`; `eval.txt` has the full tables), and the whole pipeline runs offline against a
+deterministic fake model when `CRUSOE_API_KEY` is unset (`FAKE_LLM=1` forces it).
 
 ## Run
 
@@ -83,6 +93,16 @@ and is read by the eval only (a test enforces it). See `docs/prompts.md` for eve
 - Reviews cost ~9k reasoning tokens each; `reasoning_effort: low` on GLM is untested.
 - Capture–recapture recall came out degenerate (second extraction pass ⊂ first) on the batch run.
 - Per-item grouper calls in incremental mode grow with glossary size.
+
+## Credits
+
+- Written with [Claude Code](https://claude.com/claude-code) as the coding agent, on the day of the hackathon.
+- Models on [Crusoe Managed Inference](https://www.crusoe.ai/): NVIDIA Nemotron 3 Super and 3.5 Lightning
+  (glossary decisions, extraction), DeepSeek V4.1 Flash (tagging, translation), Z.ai GLM-5.3-Flash (review).
+- Orchestration: [Temporal](https://temporal.io/) (TypeScript SDK, dev server).
+- Demo video voice: ElevenLabs.
+- fableforge was inspiration only; no code was reused.
+- Source text: *The Grey List* (灰名单), original demo text written for this hackathon (see `data/README.txt`).
 
 ## Built today (Oct 17, 2026)
 
