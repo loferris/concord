@@ -1,0 +1,31 @@
+{
+  "name": "concord",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Agent team that agrees on a glossary, then translates a novel consistently (Temporal + Crusoe)",
+  "scripts": {
+    "worker": "tsx src/worker.ts",
+    "cli": "tsx src/cli.ts",
+    "temporal": "temporal server start-dev --db-filename .tmp/temporal.db",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@temporalio/activity": "^1.24.0",
+    "@temporalio/client": "^1.24.0",
+    "@temporalio/common": "^1.24.0",
+    "@temporalio/worker": "^1.24.0",
+    "@temporalio/workflow": "^1.24.0",
+    "openai": "^7.36.0",
+    "zod": "^3.25"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}
