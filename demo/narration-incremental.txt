@@ -1,0 +1,16 @@
+# Incremental-mode narration (run inc-demo-3). Use with: NARRATION=narration-incremental.txt npx tsx demo/make-cues.ts
+# Lines starting with # are ignored. [[name]] marks a cue; the marker is not spoken.
+# Fill [X] [Y] [C] from the FINAL incremental eval (after resolving 师傅 and re-running chapter 3);
+# make-cues refuses to run until they're filled. Spell numbers as words. Ah Chuh = the glossary's "A Che".
+
+[[open]] Translation tools now build glossaries automatically, but they don't show how a term was decided, or measure whether the translation stuck to it...
+
+[[baseline]] Without a shared glossary, the taxi driver ends up called master, the same word as the hero's mentor...
+
+[[grow]] In Concord, terms are decided by debate, and the glossary grows with the book. Each new chapter reuses frozen terms and debates only what's new. In chapter three, the nickname Ah Chuh attaches to the hero. [[growtable]] When the proposers gave the taxi driver the mentor's name, code caught the collision, [[glossary]] and a human decided...
+
+[[fan]] Every chapter is translated against its own glossary version, on Crusoe and Temporal. [[kill]] Kill the worker mid-run, restart it, and it picks up where it stopped...
+
+[[ablation]] Same writer model, with and without the team: term consistency goes from [X] percent to [Y], for about [C] cents for the whole book...
+
+[[close]] Neemo-tron decides the words, DeepSeek writes, G L M checks. Concord: agents agree on the book's words, and code checks they kept them.

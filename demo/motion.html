@@ -48,7 +48,7 @@ body.clean .stage{width:min(100%,calc((100dvh - 32px) * 16 / 9));border-radius:0
 /* hook */
 #sc-hook{justify-content:center}
 .pages{display:flex;flex-direction:column;gap:1.4cqw}
-.pg{display:grid;grid-template-columns:7cqw 1fr;align-items:baseline;gap:2cqw;background:var(--surface);
+.pg{display:grid;grid-template-columns:11cqw 1fr;align-items:baseline;gap:2cqw;background:var(--surface);
   border:1px solid var(--line);border-radius:1cqw;padding:1.6cqw 2.2cqw}
 .pg .ch{font-family:var(--mono);font-size:1.3cqw;color:var(--muted)}
 .pg p{margin:0;font-size:2.5cqw}
@@ -93,6 +93,28 @@ body.clean .stage{width:min(100%,calc((100dvh - 32px) * 16 / 9));border-radius:0
 #rows .how.d{color:var(--marigold)}
 @keyframes rowin{from{opacity:0;transform:translateX(2cqw)}to{opacity:1;transform:none}}
 
+/* shared brain grows (incremental) */
+.grow{flex:1;display:grid;grid-template-columns:.9fr 1.25fr;gap:3cqw;min-height:0;align-items:start}
+.grow .chapters{padding-top:4cqw}
+.grow .gloss{align-self:start;padding:1.3cqw 1.8cqw;gap:.6cqw}
+.grow .gh{font-size:1.9cqw}
+.chapters{display:flex;flex-direction:column;gap:1.2cqw}
+.chcard{display:flex;justify-content:space-between;align-items:baseline;gap:1.2cqw;background:var(--surface);border:1px solid var(--line);border-radius:1cqw;padding:1.1cqw 1.6cqw}
+.chcard .cn{font-family:var(--mono);font-size:1.5cqw}
+.chcard .cs{font-family:var(--mono);font-size:1.2cqw;color:var(--muted)}
+.chcard.now{border-color:var(--jade)}
+.grow .verdict{min-height:4.2em;font-size:1.9cqw}
+#growrows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.35cqw}
+#growrows li{display:grid;grid-template-columns:9cqw 1fr auto;align-items:baseline;gap:.25cqw 1cqw;padding:.2cqw 0;border-top:1px solid var(--line);animation:rowin .45s cubic-bezier(.2,.8,.2,1) both}
+#growrows li:first-child{border-top:0}
+#growrows .zh{font-size:1.5cqw;font-weight:700}
+#growrows .en{font-size:1.45cqw;font-weight:700}
+#growrows .v{font-family:var(--mono);font-size:1cqw;color:var(--muted)}
+#growrows .al{grid-column:1/4;display:flex;flex-wrap:wrap;gap:.6cqw}
+#growrows .al span{font-size:1.1cqw;padding:.05cqw .8cqw;border-radius:99px;background:var(--surface);border:1px solid var(--line);animation:rowin .45s both}
+#growrows .al span.hot{border-color:var(--marigold);color:var(--marigold);background:var(--marigold-soft)}
+#growrows li.hot .en{color:var(--marigold)}
+
 /* fan-out */
 .fan{flex:1;display:grid;grid-template-columns:.8fr 1.4fr;gap:3cqw;align-items:center;min-height:0}
 .prefix{background:var(--jade-soft);border:1px solid var(--jade);border-radius:1.2cqw;padding:2cqw;display:flex;flex-direction:column;gap:.8cqw}
@@ -135,6 +157,18 @@ body.clean .stage{width:min(100%,calc((100dvh - 32px) * 16 / 9));border-radius:0
 #sc-slate .tc{margin:0;font-family:var(--mono);font-size:1.6cqw;color:var(--muted)}
 .controls .tcode{font-family:var(--mono);font-size:12px;color:var(--jade);font-variant-numeric:tabular-nums;min-width:9ch}
 
+/* real output: captured terminal text and screenshots, rendered large */
+#sc-term{padding:3.6cqw 5cqw;gap:1.4cqw}
+#sc-term .th{display:flex;justify-content:space-between;align-items:baseline;gap:2cqw}
+#sc-term .cmd{font-family:var(--mono);font-size:1.25cqw;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+#sc-term .tag{color:var(--jade)}
+.tbox{position:relative;flex:1;min-height:0;background:#0a0f0d;border:1px solid var(--line);border-radius:1cqw;overflow:hidden}
+.tbox pre{margin:0;padding:1.6cqw 2cqw;font-family:var(--mono);color:#d7e2dc;white-space:pre;line-height:1.32;font-variant-numeric:tabular-nums}
+.tbox pre .zh{font-family:var(--zh);font-size:inherit;font-weight:inherit}
+.tbox mark{background:var(--marigold-soft);color:var(--marigold);border-radius:.2em;padding:0 .15em}
+.tbox .shot{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#0a0f0d;opacity:0;transition:opacity .5s}
+.tbox .shot.on{opacity:1}
+
 /* record mode: stage fills the viewport exactly */
 body.rec{padding:0;cursor:none}
 body.rec .controls{display:none}
@@ -156,11 +190,10 @@ body.rec .stage{width:100vw;height:100vh;max-width:none;aspect-ratio:auto;border
   <section class="scene" id="sc-hook" aria-label="The problem">
     <p class="kicker">The problem</p>
     <div class="pages">
-      <article class="pg rv hid" data-k="p0"><span class="ch">Ch 1</span><p><b class="nm ok">Shen Che</b> refreshed the admin panel a third time.</p></article>
-      <article class="pg rv hid" data-k="p1"><span class="ch">Ch 2</span><p>“<b class="nm ok">Shen Che</b>,” she said, “you lead the Review Team.”</p></article>
-      <article class="pg rv hid" data-k="p2"><span class="ch">Ch 3</span><p><b class="nm bad" data-k="bad">Shen Jie</b> took the suitcase.</p></article>
+      <article class="pg rv hid" data-k="p0"><span class="ch">Ch 2 · <span class="zh">师父</span></span><p>Gu Heng, his <b class="nm ok">mentor</b>, trained him for two months.</p></article>
+      <article class="pg rv hid" data-k="p1"><span class="ch">Ch 3 · <span class="zh">师傅</span></span><p>To the taxi driver: “Pudong Airport, please, <b class="nm bad" data-k="bad">Master</b>.”</p></article>
     </div>
-    <p class="caption rv hid" data-k="cap">Same character. A few chapters later, <em>a new name.</em></p>
+    <p class="caption rv hid" data-k="cap">Same sound, different word. Without a glossary, <em>the taxi driver becomes “Master.”</em></p>
   </section>
 
   <section class="scene" id="sc-brain" aria-label="The shared brain">
@@ -182,13 +215,29 @@ body.rec .stage{width:100vw;height:100vh;max-width:none;aspect-ratio:auto;border
     </div>
   </section>
 
+  <section class="scene" id="sc-grow" aria-label="The shared brain grows">
+    <div class="sh"><p class="kicker">The shared brain grows with the book</p><span class="tag">schematic</span></div>
+    <div class="grow">
+      <div class="chapters">
+        <div class="chcard rv hid" data-k="c1"><span class="cn">Ch 1</span><span class="cs" data-k="s1"></span></div>
+        <div class="chcard rv hid" data-k="c2"><span class="cn">Ch 2</span><span class="cs" data-k="s2"></span></div>
+        <div class="chcard rv hid" data-k="c3"><span class="cn">Ch 3</span><span class="cs" data-k="s3"></span></div>
+        <p class="verdict" data-k="note"></p>
+      </div>
+      <div class="gloss" data-k="gloss">
+        <div class="gh"><span>Glossary</span><span class="ver" data-k="ver">empty</span></div>
+        <ol id="growrows"></ol>
+      </div>
+    </div>
+  </section>
+
   <section class="scene" id="sc-fan" aria-label="Translate against it">
     <div class="sh"><p class="kicker">Then every chapter translates against it</p><span class="tag">schematic</span></div>
     <div class="fan">
       <div class="prefix rv hid" data-k="prefix">
         <p class="pl">Shared prompt prefix</p>
         <p class="pv">Glossary v1 · frozen</p>
-        <ul><li><span class="zh">小鹿</span>Little Lu</li><li><span class="zh">师父</span>master</li><li><span class="zh">师傅</span>driver</li><li><span class="zh">观澜</span>Guanlan</li></ul>
+        <ul><li><span class="zh">小鹿</span>Xiao Lu</li><li><span class="zh">师父</span>master</li><li><span class="zh">师傅</span>driver</li><li><span class="zh">观澜</span>Guanlan</li></ul>
       </div>
       <div class="chs">
         <div class="chrow warm rv hid" data-k="r1"><span class="cl">Ch 1</span><div class="bar"><i data-k="b1"></i></div><span class="st" data-k="s1">fills cache</span>
@@ -209,6 +258,12 @@ body.rec .stage{width:100vw;height:100vh;max-width:none;aspect-ratio:auto;border
     <p class="repo rv hid" data-k="repo">github.com/loferris/concord · Temporal on Crusoe</p>
   </section>
 
+  <section class="scene" id="sc-term" aria-label="Real output">
+    <div class="th"><p class="kicker" data-k="label"></p><span class="tag">real output</span></div>
+    <div class="cmd" data-k="cmd"></div>
+    <div class="tbox" data-k="term"><pre data-k="pre"></pre></div>
+  </section>
+
   <section class="scene" id="sc-slate" aria-label="Footage goes here">
     <p class="kicker">Cut to real footage</p>
     <p class="sl" data-k="sl"></p>
@@ -221,6 +276,7 @@ body.rec .stage{width:100vw;height:100vh;max-width:none;aspect-ratio:auto;border
   <span class="tcode" id="tcode" hidden></span>
   <button type="button" id="b-open" data-seq="open">Opening · 8s</button>
   <button type="button" id="b-brain" data-seq="brain">Shared brain · 14s</button>
+  <button type="button" id="b-grow" data-seq="grow">Brain grows · 15s</button>
   <button type="button" id="b-fan" data-seq="fan">Fan-out · 7s</button>
   <button type="button" id="b-close" data-seq="close">Close · 6s</button>
   <button type="button" id="b-all" data-seq="all">Play all</button>
@@ -228,6 +284,7 @@ body.rec .stage{width:100vw;height:100vh;max-width:none;aspect-ratio:auto;border
 </div>
 
 <script src="cues.js"></script>
+<script src="captures.js"></script>
 <script>
 (() => {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -256,7 +313,7 @@ body.rec .stage{width:100vw;height:100vh;max-width:none;aspect-ratio:auto;border
 
     'sc-brain': r => {
       const terms = [
-        { zh:'小鹿', c:['Little Lu','Little Lu','Little Lu'], agree:true, en:'Little Lu', how:'agreed 3/3 · grouped under 陆楠' },
+        { zh:'小鹿', c:['Xiao Lu','Xiao Lu','Xiao Lu'], agree:true, en:'Xiao Lu', how:'agreed 3/3 · grouped under 陆楠' },
         { zh:'复核组的组长', c:['Audit Team Leader','Head of the Verification Team','Head of the Review Team'], win:[2], en:'Head of the Review Team',
           how:'debated · critic: “Audit” is the wrong sense of 复核',
           v1:'Three-way split. The critic flags “Audit” as the wrong sense of 复核.', v2:'Terminologist: <span class="m">“Head of the Review Team”</span>, citing policy 3.' },
@@ -307,11 +364,98 @@ body.rec .stage{width:100vw;height:100vh;max-width:none;aspect-ratio:auto;border
     ]}),
   };
 
+  builders['sc-grow'] = r => {
+    // Counts match run inc-demo-3's growth table; rows are a selection, shown without renderings
+    // except the two decisions the narration describes. The real table and glossary follow.
+    const rows = r.querySelector('#growrows'), note = k(r,'note'), ver = k(r,'ver');
+    const cards = [1,2,3].map(i => k(r,'c'+i));
+    const add = (zh, en, v) => {
+      const li = document.createElement('li');
+      li.dataset.zh = zh;
+      li.innerHTML = `<span class="zh">${zh}</span><span class="en">${en}</span><span class="v">${v}</span>`;
+      rows.appendChild(li);
+      return li;
+    };
+    const focus = i => cards.forEach((c, j) => c.classList.toggle('now', j === i));
+    const steps = [];
+    steps.push([300, () => { reveal(cards[0]); focus(0); k(r,'s1').textContent = '10 new'; note.innerHTML = 'Chapter 1: ten terms, decided and frozen.'; }]);
+    ['沈澈','陆楠','夜航','复核组','灰名单','观澜数据'].forEach(zh => steps.push([150, () => add(zh, '', 'v1')]));
+    steps.push([300, () => { ver.textContent = 'v1 · 10'; }]);
+    steps.push([1900, () => { reveal(cards[1]); focus(1); k(r,'s2').textContent = '4 new · 1 debate'; note.innerHTML = 'Chapter 2: frozen terms are reused. <span class="j">Only new ones are debated.</span>'; }]);
+    ['周总','顾衡','师父','清野生活'].forEach(zh => steps.push([150, () => add(zh, '', 'v2')]));
+    steps.push([300, () => { ver.textContent = 'v2 · 14'; }]);
+    steps.push([2200, () => { reveal(cards[2]); focus(2); k(r,'s3').textContent = '5 new · 1 alias'; note.innerHTML = 'Chapter 3: <span class="zh">阿澈</span> is new. Is it a new character?'; }]);
+    steps.push([1300, () => {
+      const li = rows.querySelector('li[data-zh="沈澈"]');
+      const al = document.createElement('div'); al.className = 'al';
+      al.innerHTML = '<span class="hot"><span class="zh">阿澈</span> A Che · alias</span>';
+      li.appendChild(al);
+      note.innerHTML = '<span class="m">No: it attaches to <span class="zh">沈澈</span>,</span> the hero.';
+    }]);
+    let shifu;
+    steps.push([1700, () => {
+      shifu = add('师傅', 'Shi Fu ✗', 'v3'); shifu.classList.add('hot');
+      note.innerHTML = 'The proposers give the taxi driver <span class="m">the mentor’s name</span>. Code catches the collision with <span class="zh">师父</span>.';
+    }]);
+    steps.push([300, () => { ['人工先验','陆家嘴'].forEach(zh => add(zh, '', 'v3')); ver.textContent = 'v3 · needs human'; }]);
+    steps.push([1700, () => {
+      shifu.querySelector('.en').textContent = 'driver ✎';
+      k(r,'gloss').classList.add('frozen'); ver.textContent = 'resolved by a human';
+      note.innerHTML = '<span class="j">A human decides: “driver.”</span> The next version records who and why.';
+    }]);
+    return { steps, hold: 1500 };
+  };
+
+  // Captured output (captures.js, written by build-captures.ts). Text is rendered exactly as captured.
+  const esc = t => t.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const paint = (lines, hl) => lines.map(l => {
+    let h = esc(l);
+    if (hl) h = h.replace(new RegExp(`(${hl})`, 'gi'), '<mark>$1</mark>');
+    return h.replace(/([㐀-鿿　-〿＀-￯]+)/g, '<span class="zh">$1</span>');
+  }).join('\n');
+  builders['sc-term'] = (r, key, scale = 1) => {
+    const cap = (window.CAPTURES || {})[key];
+    const pre = k(r,'pre'), box = k(r,'term');
+    k(r,'label').textContent = cap ? cap.label : key;
+    k(r,'cmd').textContent = cap ? '$ ' + cap.cmd : '';
+    if (!cap) return { hold: 0, steps: [] };
+    const all = cap.text.replace(/\t/g, '    ').split('\n');
+    const W = box.clientWidth || 1700, H = box.clientHeight || 800;
+    const maxRows = cap.rows || 24;
+    const cols = Math.max(40, ...all.slice(0, 400).map(l => [...l].length));
+    const rowsShown = Math.min(all.length, maxRows);
+    const fs = Math.max(11, Math.min(30, (W * 0.94) / (cols * 0.61), (H * 0.9) / (rowsShown * 1.32 + 2.4)));
+    pre.style.fontSize = fs + 'px';
+    const hl = cap.highlight || '';
+    if (!cap.reveal) {
+      // Static: show a window of maxRows lines around the first highlight.
+      let start = 0;
+      if (all.length > maxRows && hl) {
+        const i = all.findIndex(l => new RegExp(hl, 'i').test(l));
+        if (i > 0) start = Math.max(0, Math.min(i - 3, all.length - maxRows));
+      }
+      return { hold: 0, steps: [[0, () => { pre.innerHTML = paint(all.slice(start, start + maxRows), hl); }]] };
+    }
+    // Reveal: lines appear in order (tail window), then screenshots fade in on top.
+    const steps = [];
+    const chunk = Math.max(1, Math.ceil(all.length / 24));
+    for (let n = chunk; n < all.length + chunk; n += chunk) {
+      const upto = Math.min(n, all.length);
+      steps.push([120, () => { pre.innerHTML = paint(all.slice(Math.max(0, upto - maxRows), upto), hl); }]);
+    }
+    (cap.images || []).forEach(src => {
+      const img = new Image(); img.className = 'shot'; img.src = src; img.alt = '';
+      steps.push([1400, () => { box.appendChild(img); requestAnimationFrame(() => img.classList.add('on')); }]);
+    });
+    return { hold: 0, steps };
+  };
+
   builders['sc-slate'] = (r, label) => ({ hold: 0, steps: [[0, () => { k(r,'sl').textContent = label; }]] });
 
   const seqs = {
     open: ['sc-title','sc-hook'],
     brain: ['sc-brain'],
+    grow: ['sc-grow'],
     fan: ['sc-fan'],
     close: ['sc-close'],
     all: ['sc-title','sc-hook','sc-brain','sc-fan','sc-close'],
@@ -337,13 +481,17 @@ body.rec .stage{width:100vw;height:100vh;max-width:none;aspect-ratio:auto;border
 
   // ---- Voice sync: cues.js (from make-cues.ts) sets window.CUES = {audio, duration, cues:[{name,t}]}.
   // Each cue maps to one or more [scene, secondsAfterCue, arg]. The audio clock drives everything.
+  const cap = (key, fallback) => (window.CAPTURES || {})[key] ? ['sc-term', 0, key] : ['sc-slate', 0, fallback];
   const CUE_SCENES = {
     open:     [['sc-title', 0], ['sc-hook', 1.6]],
-    baseline: [['sc-slate', 0, 'Baseline output: 沈澈 → “Shen Jie”']],
+    baseline: [cap('baseline', 'Baseline output: the taxi driver (师傅) called “master”')],
+    glossary: [cap('glossary', 'Glossary v3: human resolutions marked ✎')],
+    growtable: [cap('incremental', 'Incremental run: the glossary growth table')],
     brain:    [['sc-brain', 0]],
+    grow:     [['sc-grow', 0]],
     fan:      [['sc-fan', 0]],
-    kill:     [['sc-slate', 0, 'Temporal UI: kill -9 the worker → restart → resume']],
-    ablation: [['sc-slate', 0, 'Ablation table: baseline vs full']],
+    kill:     [cap('kill', 'Temporal UI: kill -9 the worker → restart → resume')],
+    ablation: [cap('eval', 'Ablation table: baseline vs full')],
     close:    [['sc-close', 0]],
   };
   const C = window.CUES;

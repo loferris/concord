@@ -3,6 +3,7 @@
 //   read -rs ELEVENLABS_API_KEY && export ELEVENLABS_API_KEY
 //   export ELEVENLABS_VOICE_ID='<voice id from the ElevenLabs voice library>'
 //   npx tsx demo/make-cues.ts            # writes demo/voice.mp3, demo/cues.json, demo/cues.js
+//   NARRATION=narration-incremental.txt npx tsx demo/make-cues.ts   # the incremental version
 //
 // Optional: ELEVENLABS_MODEL (default eleven_multilingual_v2).
 // cues.js is loaded by motion.html via a <script> tag so it works from file:// too.
@@ -20,7 +21,8 @@ if (!key || !voice) {
 }
 
 // 1. Parse narration: drop comments, pull out [[cue]] markers with their offsets in the spoken text.
-const raw = readFileSync(path.join(dir, 'narration.txt'), 'utf8')
+const narrationFile = process.env.NARRATION ?? 'narration.txt';
+const raw = readFileSync(path.join(dir, narrationFile), 'utf8')
   .split('\n').filter((l) => !l.trimStart().startsWith('#')).join('\n').trim();
 
 const markers: { name: string; idx: number }[] = [];
