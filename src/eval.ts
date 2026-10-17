@@ -139,3 +139,86 @@ export async function referenceGlossary(): Promise<RefRow[]> {
   return parseReferenceGlossary(await readFile(REFERENCE_PATH, 'utf8'));
 }
 export type { Glossary };
+
+// ---- Shared ablation computation (CLI table and HTML report) --------------------------------------
+import { readdir } from 'node:fs/promises';
+import { PRICING } from './config';
+
+export interface UsageRow {
+  role: string;
+  label: string;
+  model: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  cached_tokens: number | null;
+}
+export async function readUsage(runDir: string): Promise<UsageRow[]> {
+  try {
+    return (await readFile(`${runDir}/usage.jsonl`, 'utf8')).split('\n').filter(Boolean).map((l) => JSON.parse(l) as UsageRow);
+  } catch {
+    return [];
+  }
+}
+export interface Cost {
+  usd: number;
+  prompt: number;
+  cached: number;
+  completion: number;
+  calls: number;
+}
+export function cost(rows: UsageRow[]): Cost {
+  let usd = 0, prompt = 0, cached = 0, completion = 0;
+  for (const r of rows) {
+    const p = PRICING[r.model.replace(/^fake:/, '')] ?? { prompt: 0, completion: 0, cached: 0 };
+    const c = r.cached_tokens ?? 0;
+    usd += ((r.prompt_tokens - c) * p.prompt + c * p.cached + r.completion_tokens * p.completion) / 1e6;
+    prompt += r.prompt_tokens;
+    cached += c;
+    completion += r.completion_tokens;
+  }
+  return { usd, prompt, cached, completion, calls: rows.length };
+}
+
+export interface Ablation {
+  runId: string;
+  glossaryRunId: string;
+  glossaryPath: string;
+  glossary: Glossary;
+  chapterNames: string[];
+  base: ColumnResult;
+  draft: ColumnResult;
+  final: ColumnResult;
+  costs: { baseline: Cost; translator: Cost; reviewer: Cost; reviser: Cost; glossary: Cost };
+}
+export async function computeAblation(runDataDir: string, runId: string, glossaryRunId?: string): Promise<Ablation> {
+  const dir = `${runDataDir}/${runId}`;
+  const chapterNames = (await readdir(`${dir}/chapters`)).sort();
+  const first = JSON.parse(await readFile(`${dir}/chapters/${chapterNames[0]}/translation.json`, 'utf8')) as { source: string; glossary: string | null };
+  const sourcePaths = chapterNames.map((n) => first.source.replace(/[^/]+$/, `${n}.txt`));
+  const glossaryPath = first.glossary!;
+  const glossary = JSON.parse(await readFile(glossaryPath, 'utf8')) as Glossary;
+  const gRun = glossaryRunId ?? glossaryPath.split('/')[1];
+  const base = checkColumn(glossary.entries, await loadBaselineChapters(dir, chapterNames));
+  const draft = checkColumn(glossary.entries, await loadFullChapters(dir, chapterNames, sourcePaths, true));
+  const final = checkColumn(glossary.entries, await loadFullChapters(dir, chapterNames, sourcePaths, false));
+  const usage = await readUsage(dir);
+  const glossaryUsage = gRun !== runId ? await readUsage(`${runDataDir}/${gRun}`) : usage;
+  const notTranslation = (r: UsageRow) => !['translator', 'baseline', 'reviewer', 'reviser'].includes(r.role);
+  return {
+    runId,
+    glossaryRunId: gRun,
+    glossaryPath,
+    glossary,
+    chapterNames,
+    base,
+    draft,
+    final,
+    costs: {
+      baseline: cost(usage.filter((r) => r.role === 'baseline')),
+      translator: cost(usage.filter((r) => r.role === 'translator')),
+      reviewer: cost(usage.filter((r) => r.role === 'reviewer')),
+      reviser: cost(usage.filter((r) => r.role === 'reviser')),
+      glossary: cost(glossaryUsage.filter(notTranslation)),
+    },
+  };
+}

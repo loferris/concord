@@ -9,6 +9,8 @@ import { nestedTermViolations, renderingCollisions } from './checks';
 import { normRendering } from './normalize';
 import { writeJsonAtomic } from './activities/io';
 import { checkColumn, factCounts, glossaryAgreement, loadBaselineChapters, loadFullChapters, referenceEnglish, referenceGlossary } from './eval';
+import { buildReport } from './report';
+import { writeAtomic } from './activities/io';
 import type { Glossary } from './schemas';
 import type { EntityRecord } from './activities/group';
 import type { AddressForm } from './activities/tag';
@@ -351,13 +353,20 @@ async function main() {
     return translateBook(args[0], args.slice(1), detach);
   }
   if (cmd === 'wait' && rest[0]) return waitRun(rest[0], rest[1]);
+  if (cmd === 'report' && rest[0]) {
+    const html = await buildReport(RUN_DATA_DIR, rest[0], rest[1]);
+    const out = `${RUN_DATA_DIR}/${rest[0]}/report.html`;
+    await writeAtomic(out, html);
+    console.log(`[cli] wrote ${out} (${(html.length / 1024).toFixed(0)} KB)`);
+    return;
+  }
   if (cmd === 'eval' && rest[0]) {
     const withRef = rest.includes('--ref');
     const args = rest.filter((a) => a !== '--ref');
     return evalRun(args[0], args[1], withRef);
   }
   if (cmd === 'glossary' && rest[0]) return glossary(rest[0], rest[1]);
-  console.error('usage:\n  cli start <chapter-file> [runId]\n  cli book <chapter-files...> [--stop-after group|glossary]\n  cli translate <glossaryRunId> <chapter-files...> [--detach]\n  cli wait <runId> [glossaryRunId]\n  cli structure <runId>\n  cli resolve <runId> <source> <rendering> [--unban <variant>] [--same-version] [--note <text>]\n  cli glossary <runId> [version]\n  cli eval <runId> [glossaryRunId] [--ref]');
+  console.error('usage:\n  cli start <chapter-file> [runId]\n  cli book <chapter-files...> [--stop-after group|glossary]\n  cli translate <glossaryRunId> <chapter-files...> [--detach]\n  cli wait <runId> [glossaryRunId]\n  cli structure <runId>\n  cli resolve <runId> <source> <rendering> [--unban <variant>] [--same-version] [--note <text>]\n  cli glossary <runId> [version]\n  cli eval <runId> [glossaryRunId] [--ref]\n  cli report <runId> [glossaryRunId]');
   process.exit(2);
 }
 
