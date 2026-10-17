@@ -1,0 +1,7 @@
+$ bunx tsx src/cli.ts growth inc-demo-3
+
+== Glossary growth — inc-demo-3
+  version  chapter  entities  new   aliases  debates  calls  cost      new entities / aliases / precedents
+  v1       01       10        10    0        0        35     $0.0282   沈澈, 陆楠, 周总, 复核组, 夜航, 白名单, 灰名单, 黑名单, 复核, 陆家嘴 / — / —
+  v2       02       14        4     0        1        22     $0.0211   模型, 师父, 顾衡, 清野生活 / — / 沈澈, 周总, 夜航
+  v3       03       19        5     1        1        27     $0.0290   师傅, 便利贴, 机场, 浦东机场, 人工先验 / 阿澈→沈澈 / 沈澈, 师父, 夜航, 陆家嘴, 白名单, 陆楠
