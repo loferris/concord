@@ -63,12 +63,17 @@ async function book(chapterPaths: string[], stopAfter?: 'group' | 'glossary') {
   if (result.translation) await evalRun(runId);
 }
 
-async function translateBook(glossaryRunId: string, chapterPaths: string[]) {
+async function translateBook(glossaryRunId: string, chapterPaths: string[], detach = false) {
   const runId = newRunId();
   const { connection, client } = await connect();
   console.log(`[cli] runId=${runId} glossaryRunId=${glossaryRunId} chapters=${chapterPaths.join(', ')}`);
   const t0 = Date.now();
   const handle = await client.workflow.start('TranslateBookWorkflow', { taskQueue: TASK_QUEUES.workflows, workflowId: `translate-${runId}`, args: [{ runId, glossaryRunId, chapterPaths }] });
+  if (detach) {
+    console.log(`[cli] started workflowId=translate-${runId} (detached). Wait with: cli wait ${runId} ${glossaryRunId}`);
+    await connection.close();
+    return;
+  }
   const result = (await handle.result()) as TranslationPhaseResult & { runId: string };
   console.log(`[cli] done in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
   for (const c of result.chapters) console.log(`  ch ${c.chapterName}: ${c.status} after ${c.rounds.length} review round(s): ${c.rounds.map((r) => `r${r.round} ${r.verdict} [crit ${r.issues.critical} maj ${r.issues.major} min ${r.issues.minor}; lint banned ${r.lint.banned} missing ${r.lint.missing} cjk ${r.lint.cjk}; disputes ${r.termDisputes}]`).join(' → ')}${c.newTermCount ? `; new_terms ${c.newTermCount}` : ''}`);
@@ -143,6 +148,18 @@ async function evalRun(runId: string, glossaryRunId?: string) {
   if (uncovered.length) console.log(`  full-system paragraphs missing a rendering: ${uncovered.join(', ')}`);
 }
 
+/** Block until a detached translate run finishes, then print the chapter summary and the ablation. */
+async function waitRun(runId: string, glossaryRunId?: string) {
+  const { connection, client } = await connect();
+  const handle = client.workflow.getHandle(`translate-${runId}`);
+  const t0 = Date.now();
+  const result = (await handle.result()) as TranslationPhaseResult & { runId: string; glossaryRunId: string };
+  console.log(`[cli] translate-${runId} completed (waited ${((Date.now() - t0) / 1000).toFixed(1)}s)`);
+  for (const c of result.chapters) console.log(`  ch ${c.chapterName}: ${c.status} after ${c.rounds.length} review round(s): ${c.rounds.map((r) => `r${r.round} ${r.verdict} [crit ${r.issues.critical} maj ${r.issues.major} min ${r.issues.minor}; lint ${r.lint.banned + r.lint.missing + r.lint.cjk}]`).join(' → ')}`);
+  await connection.close();
+  await evalRun(runId, glossaryRunId ?? result.glossaryRunId);
+}
+
 async function structure(runId: string) {
   const dir = `${RUN_DATA_DIR}/${runId}/glossary`;
   const forms = JSON.parse(await readFile(`${dir}/address-forms.json`, 'utf8')) as AddressForm[];
@@ -193,10 +210,15 @@ async function main() {
     return book(files, stopAfter);
   }
   if (cmd === 'structure' && rest[0]) return structure(rest[0]);
-  if (cmd === 'translate' && rest.length >= 2) return translateBook(rest[0], rest.slice(1));
+  if (cmd === 'translate' && rest.length >= 2) {
+    const detach = rest.includes('--detach');
+    const args = rest.filter((a) => a !== '--detach');
+    return translateBook(args[0], args.slice(1), detach);
+  }
+  if (cmd === 'wait' && rest[0]) return waitRun(rest[0], rest[1]);
   if (cmd === 'eval' && rest[0]) return evalRun(rest[0], rest[1]);
   if (cmd === 'glossary' && rest[0]) return glossary(rest[0], rest[1]);
-  console.error('usage:\n  cli start <chapter-file> [runId]\n  cli book <chapter-files...> [--stop-after group|glossary]\n  cli translate <glossaryRunId> <chapter-files...>\n  cli structure <runId>\n  cli glossary <runId> [version]\n  cli eval <runId> [glossaryRunId]');
+  console.error('usage:\n  cli start <chapter-file> [runId]\n  cli book <chapter-files...> [--stop-after group|glossary]\n  cli translate <glossaryRunId> <chapter-files...> [--detach]\n  cli wait <runId> [glossaryRunId]\n  cli structure <runId>\n  cli glossary <runId> [version]\n  cli eval <runId> [glossaryRunId]');
   process.exit(2);
 }
 
