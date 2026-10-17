@@ -10,6 +10,9 @@ import { attemptSeed, chapterNameOf, withHeartbeat } from './common';
 export interface ExtractTermsInput {
   runId: string;
   chapterPaths: string[];
+  /** Incremental mode (single chapter): keep single-occurrence items the extractor marks as needing a fixed
+   *  rendering or that are already glossary sources/aliases; write under glossary/incremental/<chapter>/. */
+  incremental?: { knownSources: string[]; chapterName: string };
 }
 export interface CaptureRecapture {
   runA: number;
@@ -54,8 +57,10 @@ export async function extractTerms(input: ExtractTermsInput): Promise<ExtractTer
     const call = (offset: number) => chatJson({ model: MODELS.extractor, ...prompt, schemaName: 'extraction', maxTokens: 8192, seed: attemptSeed() + offset, enableThinking: false }, ExtractionSchema);
     const resA = await call(0);
     const resB = await call(5000);
-    const vA = verifyExtraction(resA.data.items, all);
-    const vB = verifyExtraction(resB.data.items, all);
+    const known = new Set(input.incremental?.knownSources ?? []);
+    const keepSingle = input.incremental ? (it: { source: string; needs_fixed_rendering: boolean }) => it.needs_fixed_rendering || known.has(it.source) : undefined;
+    const vA = verifyExtraction(resA.data.items, all, { keepSingle });
+    const vB = verifyExtraction(resB.data.items, all, { keepSingle });
     const dropped = [...vA.dropped, ...vB.dropped];
     if (dropped.length) console.log(`[extract] dropped ${dropped.length}/${resA.data.items.length + resB.data.items.length} items: ${dropped.map((d) => `${d.source} (${d.why})`).join('; ')}`);
     const union = new Map<string, (typeof vA.kept)[number]>();
@@ -84,7 +89,7 @@ export async function extractTerms(input: ExtractTermsInput): Promise<ExtractTer
     const res = { usage: { ...resA.usage, prompt_tokens: resA.usage.prompt_tokens + resB.usage.prompt_tokens, completion_tokens: resA.usage.completion_tokens + resB.usage.completion_tokens } };
     const extraction = { items: Array.from(union.values()), rejected_candidates: [...resA.data.rejected_candidates, ...resB.data.rejected_candidates], dropped_by_code: dropped, capture_recapture: captureRecapture };
     await recordUsage(input.runId, 'extractor', 'book-A', resA.usage);
-    const dir = runDir(input.runId, 'glossary');
+    const dir = input.incremental ? runDir(input.runId, 'glossary', 'incremental', input.incremental.chapterName) : runDir(input.runId, 'glossary');
     const extractionPath = `${dir}/extraction.json`;
     const candidatesPath = `${dir}/candidates.json`;
     await writeJsonAtomic(candidatesPath, candidates);

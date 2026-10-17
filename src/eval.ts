@@ -190,14 +190,14 @@ export interface Ablation {
   final: ColumnResult;
   costs: { baseline: Cost; translator: Cost; reviewer: Cost; reviser: Cost; glossary: Cost };
 }
-export async function computeAblation(runDataDir: string, runId: string, glossaryRunId?: string): Promise<Ablation> {
+export async function computeAblation(runDataDir: string, runId: string, glossaryRunId?: string, glossaryVersion?: number): Promise<Ablation> {
   const dir = `${runDataDir}/${runId}`;
   const chapterNames = (await readdir(`${dir}/chapters`)).sort();
   const first = JSON.parse(await readFile(`${dir}/chapters/${chapterNames[0]}/translation.json`, 'utf8')) as { source: string; glossary: string | null };
   const sourcePaths = chapterNames.map((n) => first.source.replace(/[^/]+$/, `${n}.txt`));
-  const glossaryPath = first.glossary!;
+  const gRun = glossaryRunId ?? first.glossary!.split('/')[1];
+  const glossaryPath = glossaryVersion ? `${runDataDir}/${gRun}/glossary/glossary.v${glossaryVersion}.json` : first.glossary!;
   const glossary = JSON.parse(await readFile(glossaryPath, 'utf8')) as Glossary;
-  const gRun = glossaryRunId ?? glossaryPath.split('/')[1];
   const base = checkColumn(glossary.entries, await loadBaselineChapters(dir, chapterNames));
   const draft = checkColumn(glossary.entries, await loadFullChapters(dir, chapterNames, sourcePaths, true));
   const final = checkColumn(glossary.entries, await loadFullChapters(dir, chapterNames, sourcePaths, false));

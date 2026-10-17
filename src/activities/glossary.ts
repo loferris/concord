@@ -68,6 +68,22 @@ export interface ProposeInput {
   policiesPath: string;
   source: string;
   stance: Stance;
+  /** Incremental mode: frozen glossary whose decisions and rationales are precedent. */
+  precedentGlossaryPath?: string;
+}
+
+/** Frozen entries with rationales, appended to the POLICIES slot so earlier rulings guide new ones. */
+async function precedentBlock(path?: string): Promise<string> {
+  if (!path) return '';
+  const g = JSON.parse(await readText(path)) as Glossary;
+  if (!g.entries.length) return '';
+  return `\n\nPRECEDENTS (frozen glossary; decide similar cases the same way):\n${g.entries
+    .map((e) => `${e.source} → ${e.rendering}${e.alias_renderings.length ? ` (aliases: ${e.alias_renderings.map((a) => `${a.source} → ${a.rendering}`).join(', ')})` : ''} — ${e.rationale}`)
+    .join('\n')}`;
+}
+/** Which frozen sources/renderings a rationale mentions (code-side detection of cited precedent). */
+export function citedPrecedents(text: string, g: Glossary): string[] {
+  return g.entries.filter((e) => text.includes(e.source) || (e.rendering.length > 3 && text.includes(e.rendering)) || e.alias_renderings.some((a) => text.includes(a.source))).map((e) => e.source);
 }
 export interface ProposeOutput {
   stance: Stance;
@@ -77,7 +93,7 @@ export interface ProposeOutput {
 export async function propose(input: ProposeInput): Promise<ProposeOutput> {
   return withHeartbeat(async () => {
     const e = await loadEntity(input.entitiesPath, input.source);
-    const prompt = proposerPrompt(input.stance, await loadPolicies(input.policiesPath), formatEntity(e), e.contexts.join('\n'));
+    const prompt = proposerPrompt(input.stance, (await loadPolicies(input.policiesPath)) + (await precedentBlock(input.precedentGlossaryPath)), formatEntity(e), e.contexts.join('\n'));
     // Each stance samples independently (own seed offset); with one shared seed at low temperature the three
     // "blind translators" converged on the same output and nothing was ever debated.
     const stanceOffset = { fidelity: 0, readability: 1000, genre: 2000 }[input.stance];
@@ -100,12 +116,18 @@ export interface CritiqueInput {
   source: string;
   proposals: Proposal[];
   otherSources: string[];
+  precedentGlossaryPath?: string;
+}
+async function frozenBlock(path: string | undefined, otherSources: string[]): Promise<string> {
+  if (!path) return otherSources.join(', ') || '(none yet)';
+  const g = JSON.parse(await readText(path)) as Glossary;
+  return g.entries.map((e) => `${e.source} → ${e.rendering}${e.alias_renderings.length ? ` (${e.alias_renderings.map((a) => `${a.source} → ${a.rendering}`).join(', ')})` : ''}`).join('; ') || '(none yet)';
 }
 export async function critique(input: CritiqueInput): Promise<{ critique: Critique; usage: Usage }> {
   return withHeartbeat(async () => {
     const e = await loadEntity(input.entitiesPath, input.source);
     const [a, b, c] = input.proposals.map(formatProposal);
-    const prompt = criticPrompt(await loadPolicies(input.policiesPath), entityAndContexts(e), a, b, c, input.otherSources.join(', ') || '(none yet)');
+    const prompt = criticPrompt(await loadPolicies(input.policiesPath), entityAndContexts(e), a, b, c, await frozenBlock(input.precedentGlossaryPath, input.otherSources));
     const res = await chatJson({ model: decisionModel(), ...prompt, schemaName: 'critique', maxTokens: 2048, seed: attemptSeed(), enableThinking: false }, CritiqueSchema);
     await writeJsonAtomic(runDir(input.runId, 'glossary', 'debates', input.source, 'critique.json'), { ...res.data, usage: res.usage });
     await recordUsage(input.runId, 'critic', input.source, res.usage);
@@ -124,14 +146,22 @@ export interface DecideInput {
   otherSources: string[];
   /** Nested-term constraints: renderings that must appear inside this entry's rendering. */
   constraints?: { within: string; requiredRendering: string }[];
+  precedentGlossaryPath?: string;
+  /** Incremental mode: the entity's rendering is frozen; the terminologist only renders its new alias(es). */
+  frozenRendering?: boolean;
 }
 export async function decide(input: DecideInput): Promise<{ decision: TerminologistDecision; usage: Usage; notes: string[] }> {
   return withHeartbeat(async () => {
     const e = await loadEntity(input.entitiesPath, input.source);
-    const proposals = input.proposals.map((p, i) => `${'ABC'[i]}: ${formatProposal(p)}`).join('\n');
+    let proposals = input.proposals.map((p, i) => `${'ABC'[i]}: ${formatProposal(p)}`).join('\n');
+    if (input.frozenRendering && input.precedentGlossaryPath) {
+      const g = JSON.parse(await readText(input.precedentGlossaryPath)) as Glossary;
+      const frozen = g.entries.find((x) => x.source === input.source);
+      if (frozen) proposals = `The rendering "${frozen.rendering}" for ${input.source} is FROZEN and must be kept exactly. Only the new alias(es) need a rendering: ${e.aliases.filter((a) => !frozen.alias_renderings.some((x) => x.source === a.source)).map((a) => a.source).join(', ') || '(none)'}.`;
+    }
     const frozen = [
       ...(input.constraints ?? []).map((c) => `${c.within} → "${c.requiredRendering}" (FROZEN. This entry's source contains ${c.within}, so its rendering MUST contain "${c.requiredRendering}" verbatim.)`),
-      input.otherSources.join(', ') || '(none yet)',
+      await frozenBlock(input.precedentGlossaryPath, input.otherSources),
     ].join('\n');
     const prompt = terminologistPrompt(await loadPolicies(input.policiesPath), frozen, entityAndContexts(e), proposals, input.critique ? formatCritique(input.critique) : 'none');
     const res = await chatJson({ model: decisionModel(), ...prompt, schemaName: 'terminologist', maxTokens: 2048, seed: attemptSeed(), enableThinking: false }, TerminologistSchema);

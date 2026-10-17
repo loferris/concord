@@ -67,6 +67,8 @@ export interface DebateWorkflowInput {
   type: GlossaryEntry['type'];
   /** Other entity sources, for collision awareness (debates run in parallel). */
   otherSources: string[];
+  /** Incremental mode: frozen glossary as precedent for proposers, critic and terminologist. */
+  precedentGlossaryPath?: string;
 }
 export interface DebateWorkflowResult {
   entry: GlossaryEntry;
@@ -80,7 +82,7 @@ const STANCES: Stance[] = ['fidelity', 'readability', 'genre'];
 
 /** One contested-or-not term: three blind proposers; agreement freezes, otherwise critic → terminologist. */
 export async function DebateWorkflow(input: DebateWorkflowInput): Promise<DebateWorkflowResult> {
-  const base = { runId: input.runId, entitiesPath: input.entitiesPath, policiesPath: input.policiesPath, source: input.source };
+  const base = { runId: input.runId, entitiesPath: input.entitiesPath, policiesPath: input.policiesPath, source: input.source, precedentGlossaryPath: input.precedentGlossaryPath };
   const proposals = await Promise.all(STANCES.map((stance) => smart.propose({ ...base, stance })));
   const ps: Proposal[] = proposals.map((p) => p.proposal);
   const rawKeys = ps.map((p) => normRaw(p.rendering));
@@ -308,4 +310,82 @@ export async function BookWorkflow(input: BookWorkflowInput): Promise<BookWorkfl
   // 8. Translate against glossary.v2: first chapter alone, then the rest in parallel; baseline; checks.
   const translation = await translationPhase(input.runId, input.chapterPaths, tagged.map((t) => t.taggedPath), g2.glossaryPath, policies.policiesPath);
   return { ...frozen, translation, status: 'translated' };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Incremental mode: chapters arrive one at a time; the glossary grows by one version per chapter.
+export interface AddChapterWorkflowInput {
+  runId: string;
+  chapterPath: string;
+  /** 0 when no glossary exists yet. */
+  previousVersion: number;
+  maxReviewRounds?: number;
+}
+export interface AddChapterWorkflowResult {
+  runId: string;
+  chapterName: string;
+  version: number;
+  glossaryPath: string;
+  changelog: import('./activities').ChangelogEntry;
+  chapter: ChapterWorkflowResult;
+}
+
+export async function AddChapterWorkflow(input: AddChapterWorkflowInput): Promise<AddChapterWorkflowResult> {
+  const stepStartedAt = new Date().toISOString(); // deterministic in Temporal workflows
+  const chapterName = input.chapterPath.split('/').pop()!.replace(/\.[^.]+$/, '');
+  const base = `run-data/${input.runId}`;
+  const prevGlossary = input.previousVersion > 0 ? `${base}/glossary/glossary.v${input.previousVersion}.json` : null;
+  const prevEntities = input.previousVersion > 0 ? `${base}/glossary/incremental/entities.latest.json` : null;
+  const version = input.previousVersion + 1;
+
+  // 1. Tag, extract (this chapter alone), diff + group against the existing entities.
+  const tagged = await smart.tagChapter({ runId: input.runId, chapterPath: input.chapterPath });
+  const knownSources = prevGlossary ? await local.listGlossarySources(prevGlossary) : [];
+  const extraction = await fast.extractTerms({ runId: input.runId, chapterPaths: [input.chapterPath], incremental: { knownSources, chapterName } });
+  let grouping: { entitiesPath: string; newEntities: string[]; newAliases: { alias: string; entity: string; used_by: string }[] };
+  if (input.previousVersion === 0) {
+    // First chapter: nothing is known yet, so group within the chapter with the batch grouper.
+    const g0 = await smart.groupAliases({ runId: input.runId, extractionPath: extraction.extractionPath, taggedPaths: [tagged.taggedPath], addressFormsPaths: [tagged.addressFormsPath] });
+    const ents = await local.listEntities(g0.entitiesPath);
+    grouping = { entitiesPath: g0.entitiesPath, newEntities: ents.map((e) => e.source), newAliases: [] };
+  } else {
+    grouping = await smart.groupIncremental({ runId: input.runId, chapterName, extractionPath: extraction.extractionPath, taggedPath: tagged.taggedPath, addressFormsPath: tagged.addressFormsPath, glossaryPath: prevGlossary, entitiesPath: prevEntities });
+  }
+  await local.copyFile({ from: grouping.entitiesPath, to: `${base}/glossary/incremental/entities.latest.json` });
+
+  // 2. Policies once, before any term.
+  const policiesPath = `${base}/glossary/policies.json`;
+  if (input.previousVersion === 0) await smart.setPolicies({ runId: input.runId, firstChapterPath: input.chapterPath });
+
+  // 3. Debate only the new entities, with the frozen glossary as precedent. New aliases of existing entities
+  //    get a rendering from one terminologist call (the entity's rendering is frozen; only the alias is new).
+  const allSources = [...knownSources, ...grouping.newEntities];
+  const debates = await Promise.all(
+    grouping.newEntities.map((source) =>
+      executeChild(DebateWorkflow, {
+        workflowId: `debate-${input.runId}-v${version}-${source}`,
+        taskQueue: TASK_QUEUES.workflows,
+        args: [{ runId: input.runId, entitiesPath: grouping.entitiesPath, policiesPath, source, type: 'term', otherSources: allSources.filter((s) => s !== source), precedentGlossaryPath: prevGlossary ?? undefined }],
+      }),
+    ),
+  );
+  const aliasRenderings: { entity: string; source: string; rendering: string }[] = [];
+  for (const a of grouping.newAliases) {
+    const { decision } = await smart.decide({ runId: input.runId, entitiesPath: grouping.entitiesPath, policiesPath, source: a.entity, proposals: [], critique: null, otherSources: allSources.filter((s) => s !== a.entity), precedentGlossaryPath: prevGlossary ?? undefined, frozenRendering: true });
+    const r = decision.alias_renderings.find((x) => x.source === a.alias);
+    aliasRenderings.push({ entity: a.entity, source: a.alias, rendering: r?.rendering ?? decision.rendering });
+  }
+  // Entity types come from the grouping record, not the debate input default.
+  const types = await local.listEntities(grouping.entitiesPath);
+  const newEntries = debates.map((d) => ({ ...d.entry, type: types.find((t) => t.source === d.entry.source)?.type ?? d.entry.type }));
+
+  // 4. Write glossary.v{N+1} + changelog (frozen entries unchanged).
+  const g = await local.writeGlossaryVersion({ runId: input.runId, chapterName, previousGlossaryPath: prevGlossary, version, newEntries, newAliases: grouping.newAliases, aliasRenderings, debates: debates.filter((d) => d.agreement === 'none').length, stepStartedAt });
+
+  // 5. Translate + review this chapter against the new version (+ baseline for the eval).
+  const [chapter] = await Promise.all([
+    executeChild(ChapterWorkflow, { workflowId: `chapter-${input.runId}-${chapterName}`, taskQueue: TASK_QUEUES.workflows, args: [{ runId: input.runId, chapterPath: input.chapterPath, taggedPath: tagged.taggedPath, glossaryPath: g.glossaryPath, policiesPath, maxReviewRounds: input.maxReviewRounds }] }),
+    fast.translateBaseline({ runId: input.runId, chapterPath: input.chapterPath }),
+  ]);
+  return { runId: input.runId, chapterName, version, glossaryPath: g.glossaryPath, changelog: g.changelog, chapter };
 }

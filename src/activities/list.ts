@@ -13,3 +13,16 @@ export async function listEntityAliases(input: { entitiesPath: string; source: s
   const e = entities.find((x) => x.canonical_source === input.source);
   return e ? e.aliases : [];
 }
+
+import { copyFile as fsCopy, mkdir } from 'node:fs/promises';
+import { dirname } from 'node:path';
+import type { Glossary } from '../schemas';
+
+export async function listGlossarySources(glossaryPath: string): Promise<string[]> {
+  const g = JSON.parse(await readText(glossaryPath)) as Glossary;
+  return g.entries.flatMap((e) => [e.source, ...e.alias_renderings.map((a) => a.source)]);
+}
+export async function copyFile(input: { from: string; to: string }): Promise<void> {
+  await mkdir(dirname(input.to), { recursive: true });
+  await fsCopy(input.from, input.to);
+}

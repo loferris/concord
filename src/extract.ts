@@ -176,7 +176,7 @@ export interface FilterResult<T extends ExtractedLike> {
  * text. Terms and phrases must recur (>= minCount occurrences); names/titles/etc. may occur once.
  * Long strings (> maxLen chars) are only kept as 'phrase' when they recur verbatim.
  */
-export function verifyExtraction<T extends ExtractedLike>(items: T[], paragraphs: CandidateInput[], opts: { minCount?: number; maxLen?: number } = {}): FilterResult<T> {
+export function verifyExtraction<T extends ExtractedLike>(items: T[], paragraphs: CandidateInput[], opts: { minCount?: number; maxLen?: number; keepSingle?: (item: T) => boolean } = {}): FilterResult<T> {
   const minCount = opts.minCount ?? 2;
   const maxLen = opts.maxLen ?? 12;
   const kept: T[] = [];
@@ -200,7 +200,7 @@ export function verifyExtraction<T extends ExtractedLike>(items: T[], paragraphs
       dropped.push({ source, why: 'time/number expression' });
       continue;
     }
-    if (count < minCount && !SINGLE_OK.has(it.type)) {
+    if (count < minCount && !SINGLE_OK.has(it.type) && !opts.keepSingle?.(it)) {
       dropped.push({ source, why: `occurs once (${it.type})` });
       continue;
     }

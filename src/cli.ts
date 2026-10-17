@@ -8,7 +8,7 @@ import type { CheckSummary } from './checks';
 import { nestedTermViolations, renderingCollisions } from './checks';
 import { normRendering } from './normalize';
 import { writeJsonAtomic } from './activities/io';
-import { checkColumn, factCounts, glossaryAgreement, loadBaselineChapters, loadFullChapters, referenceEnglish, referenceGlossary } from './eval';
+import { computeAblation, factCounts, glossaryAgreement, loadBaselineChapters, loadFullChapters, referenceEnglish, referenceGlossary } from './eval';
 import { buildReport } from './report';
 import { writeAtomic } from './activities/io';
 import type { Glossary } from './schemas';
@@ -123,18 +123,11 @@ function cost(rows: UsageRow[]): { usd: number; prompt: number; cached: number; 
  * computed in-process from the run files against the glossary the run used; cost and cached-token rate from
  * usage.jsonl. `--ref` adds the reference-based eval (glossary agreement + fact ledger).
  */
-async function evalRun(runId: string, glossaryRunId?: string, withRef = false) {
+async function evalRun(runId: string, glossaryRunId?: string, withRef = false, glossaryVersion?: number) {
   const dir = `${RUN_DATA_DIR}/${runId}`;
-  const chapterNames = (await readdir(`${dir}/chapters`)).sort();
-  const first = JSON.parse(await readFile(`${dir}/chapters/${chapterNames[0]}/translation.json`, 'utf8')) as { source: string; glossary: string | null };
-  const sourcePaths = chapterNames.map((n) => first.source.replace(/[^/]+$/, `${n}.txt`));
-  const glossaryPath = first.glossary!;
-  const glossary = JSON.parse(await readFile(glossaryPath, 'utf8')) as Glossary;
-  const gRun = glossaryRunId ?? glossaryPath.split('/')[1];
-
-  const base = checkColumn(glossary.entries, await loadBaselineChapters(dir, chapterNames));
-  const draft = checkColumn(glossary.entries, await loadFullChapters(dir, chapterNames, sourcePaths, true));
-  const final = checkColumn(glossary.entries, await loadFullChapters(dir, chapterNames, sourcePaths, false));
+  const ab = await computeAblation(RUN_DATA_DIR, runId, glossaryRunId, glossaryVersion);
+  const { chapterNames, glossaryPath, glossary, base, draft, final } = ab;
+  const gRun = ab.glossaryRunId;
 
   const usage = await readUsage(runId);
   const glossaryUsage = gRun !== runId ? await readUsage(gRun) : usage.filter((r) => !['translator', 'baseline', 'reviewer', 'reviser'].includes(r.role));
@@ -292,6 +285,34 @@ async function resolve(runId: string, source: string, rendering: string, opts: {
   console.log(`  needs_human remaining: ${stillHuman.length ? stillHuman.join(', ') : 'none'}`);
 }
 
+/** Incremental mode: add one chapter to a run; the glossary grows by one version. */
+async function addChapter(runId: string, chapterPath: string) {
+  const { connection, client } = await connect();
+  let previousVersion = 0;
+  try {
+    previousVersion = await latestGlossaryVersion(runId);
+  } catch {
+    /* new run */
+  }
+  const chapterName = basename(chapterPath, extname(chapterPath));
+  console.log(`[cli] add-chapter runId=${runId} chapter=${chapterName} previousVersion=${previousVersion}`);
+  const t0 = Date.now();
+  const handle = await client.workflow.start('AddChapterWorkflow', { taskQueue: TASK_QUEUES.workflows, workflowId: `add-${runId}-${chapterName}`, args: [{ runId, chapterPath, previousVersion }] });
+  const r = (await handle.result()) as { version: number; glossaryPath: string; changelog: { entitiesTotal: number; newEntities: string[]; newAliases: { alias: string; entity: string }[]; debates: number; precedentsCited: string[]; calls: number; costUsd: number }; chapter: { status: string; rounds: { verdict: string }[] } };
+  const c = r.changelog;
+  console.log(`[cli] done in ${((Date.now() - t0) / 1000).toFixed(1)}s → glossary.v${r.version}.json: ${c.entitiesTotal} entities total, +${c.newEntities.length} new (${c.newEntities.join(', ') || '—'}), +${c.newAliases.length} aliases (${c.newAliases.map((a) => `${a.alias}→${a.entity}`).join(', ') || '—'}), ${c.debates} debated, precedents cited: ${c.precedentsCited.join(', ') || '—'}, ${c.calls} calls, $${c.costUsd.toFixed(4)}; chapter ${r.chapter.status} after ${r.chapter.rounds.length} review round(s)`);
+  await connection.close();
+}
+
+async function growth(runId: string) {
+  const log = JSON.parse(await readFile(`${RUN_DATA_DIR}/${runId}/glossary/changelog.json`, 'utf8')) as { version: number; chapter: string; entitiesTotal: number; newEntities: string[]; newAliases: { alias: string; entity: string }[]; debates: number; precedentsCited: string[]; calls: number; costUsd: number }[];
+  console.log(`\n== Glossary growth — ${runId}`);
+  console.log(`  ${pad('version', 8)} ${pad('chapter', 8)} ${pad('entities', 9)} ${pad('new', 5)} ${pad('aliases', 8)} ${pad('debates', 8)} ${pad('calls', 6)} ${pad('cost', 9)} new entities / aliases / precedents`);
+  for (const l of log.sort((a, b) => a.version - b.version)) {
+    console.log(`  ${pad('v' + l.version, 8)} ${pad(l.chapter, 8)} ${pad(String(l.entitiesTotal), 9)} ${pad(String(l.newEntities.length), 5)} ${pad(String(l.newAliases.length), 8)} ${pad(String(l.debates), 8)} ${pad(String(l.calls), 6)} ${pad('$' + l.costUsd.toFixed(4), 9)} ${l.newEntities.join(', ') || '—'} / ${l.newAliases.map((a) => `${a.alias}→${a.entity}`).join(', ') || '—'} / ${l.precedentsCited.join(', ') || '—'}`);
+  }
+}
+
 async function structure(runId: string) {
   const dir = `${RUN_DATA_DIR}/${runId}/glossary`;
   const forms = JSON.parse(await readFile(`${dir}/address-forms.json`, 'utf8')) as AddressForm[];
@@ -342,6 +363,8 @@ async function main() {
     return book(files, stopAfter);
   }
   if (cmd === 'structure' && rest[0]) return structure(rest[0]);
+  if (cmd === 'add-chapter' && rest.length >= 2) return addChapter(rest[0], rest[1]);
+  if (cmd === 'growth' && rest[0]) return growth(rest[0]);
   if (cmd === 'resolve' && rest.length >= 3) {
     const unbanIdx = rest.indexOf('--unban');
     const noteIdx = rest.indexOf('--note');
@@ -362,11 +385,13 @@ async function main() {
   }
   if (cmd === 'eval' && rest[0]) {
     const withRef = rest.includes('--ref');
-    const args = rest.filter((a) => a !== '--ref');
-    return evalRun(args[0], args[1], withRef);
+    const gvIdx = rest.indexOf('--glossary-version');
+    const gv = gvIdx >= 0 ? Number(rest[gvIdx + 1]) : undefined;
+    const args = rest.filter((a, i) => a !== '--ref' && i !== gvIdx && i !== gvIdx + 1);
+    return evalRun(args[0], args[1], withRef, gv);
   }
   if (cmd === 'glossary' && rest[0]) return glossary(rest[0], rest[1]);
-  console.error('usage:\n  cli start <chapter-file> [runId]\n  cli book <chapter-files...> [--stop-after group|glossary]\n  cli translate <glossaryRunId> <chapter-files...> [--detach]\n  cli wait <runId> [glossaryRunId]\n  cli structure <runId>\n  cli resolve <runId> <source> <rendering> [--unban <variant>] [--same-version] [--note <text>]\n  cli glossary <runId> [version]\n  cli eval <runId> [glossaryRunId] [--ref]\n  cli report <runId> [glossaryRunId]');
+  console.error('usage:\n  cli start <chapter-file> [runId]\n  cli book <chapter-files...> [--stop-after group|glossary]\n  cli translate <glossaryRunId> <chapter-files...> [--detach]\n  cli wait <runId> [glossaryRunId]\n  cli structure <runId>\n  cli add-chapter <runId> <chapter-file>   (incremental mode; glossary grows one version per chapter)\n  cli growth <runId>\n  cli resolve <runId> <source> <rendering> [--unban <variant>] [--same-version] [--note <text>]\n  cli glossary <runId> [version]\n  cli eval <runId> [glossaryRunId] [--ref]\n  cli report <runId> [glossaryRunId]');
   process.exit(2);
 }
 
