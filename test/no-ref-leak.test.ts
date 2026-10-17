@@ -10,9 +10,9 @@ describe('ref/ is never read by prompts, activities or workflows', () => {
       expect(src).not.toMatch(/ref\/|english-reference/);
     });
   }
-  it('only src/eval.ts and src/cli.ts reference the answer key', () => {
+  it('only src/eval.ts, src/cli.ts and src/report.ts (eval output) reference the answer key', () => {
     const all = readdirSync('src').filter((f) => f.endsWith('.ts')).map((f) => `src/${f}`);
-    const offenders = all.filter((f) => /ref\/|english-reference/.test(readFileSync(f, 'utf8')) && !['src/eval.ts', 'src/cli.ts'].includes(f));
+    const offenders = all.filter((f) => /ref\/|english-reference/.test(readFileSync(f, 'utf8')) && !['src/eval.ts', 'src/cli.ts', 'src/report.ts'].includes(f));
     expect(offenders).toEqual([]);
   });
 });
