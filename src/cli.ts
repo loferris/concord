@@ -8,6 +8,7 @@ import type { CheckSummary } from './checks';
 import { nestedTermViolations, renderingCollisions } from './checks';
 import { normRendering } from './normalize';
 import { writeJsonAtomic } from './activities/io';
+import { checkColumn, factCounts, glossaryAgreement, loadBaselineChapters, loadFullChapters, referenceEnglish, referenceGlossary } from './eval';
 import type { Glossary } from './schemas';
 import type { EntityRecord } from './activities/group';
 import type { AddressForm } from './activities/tag';
@@ -115,42 +116,93 @@ function cost(rows: UsageRow[]): { usd: number; prompt: number; cached: number; 
   return { usd, prompt, cached, completion, calls: rows.length };
 }
 
-/** Ablation table: one-prompt baseline vs the full system, from checks/*.json and usage.jsonl. */
-async function evalRun(runId: string, glossaryRunId?: string) {
+/**
+ * Ablation table: baseline (one prompt) | full before review (first drafts) | full after review (final),
+ * computed in-process from the run files against the glossary the run used; cost and cached-token rate from
+ * usage.jsonl. `--ref` adds the reference-based eval (glossary agreement + fact ledger).
+ */
+async function evalRun(runId: string, glossaryRunId?: string, withRef = false) {
   const dir = `${RUN_DATA_DIR}/${runId}`;
-  const full = JSON.parse(await readFile(`${dir}/checks/full.json`, 'utf8')) as { summary: CheckSummary; stats: { source: string; renderingHits: number; bannedHits: { variant: string; count: number }[]; variantsUsed: string[]; coverage?: { covered: number; total: number } }[]; leaks: unknown[] };
-  const base = JSON.parse(await readFile(`${dir}/checks/baseline.json`, 'utf8')) as typeof full;
+  const chapterNames = (await readdir(`${dir}/chapters`)).sort();
+  const first = JSON.parse(await readFile(`${dir}/chapters/${chapterNames[0]}/translation.json`, 'utf8')) as { source: string; glossary: string | null };
+  const sourcePaths = chapterNames.map((n) => first.source.replace(/[^/]+$/, `${n}.txt`));
+  const glossaryPath = first.glossary!;
+  const glossary = JSON.parse(await readFile(glossaryPath, 'utf8')) as Glossary;
+  const gRun = glossaryRunId ?? glossaryPath.split('/')[1];
+
+  const base = checkColumn(glossary.entries, await loadBaselineChapters(dir, chapterNames));
+  const draft = checkColumn(glossary.entries, await loadFullChapters(dir, chapterNames, sourcePaths, true));
+  const final = checkColumn(glossary.entries, await loadFullChapters(dir, chapterNames, sourcePaths, false));
+
   const usage = await readUsage(runId);
-  const glossaryUsage = glossaryRunId && glossaryRunId !== runId ? await readUsage(glossaryRunId) : usage.filter((r) => !['translator', 'baseline'].includes(r.role));
+  const glossaryUsage = gRun !== runId ? await readUsage(gRun) : usage.filter((r) => !['translator', 'baseline', 'reviewer', 'reviser'].includes(r.role));
   const trans = cost(usage.filter((r) => r.role === 'translator'));
   const rev = cost(usage.filter((r) => r.role === 'reviewer'));
   const revise = cost(usage.filter((r) => r.role === 'reviser'));
   const bl = cost(usage.filter((r) => r.role === 'baseline'));
-  const gl = cost(glossaryUsage.filter((r) => !['translator', 'baseline'].includes(r.role)));
+  const gl = cost(glossaryUsage.filter((r) => !['translator', 'baseline', 'reviewer', 'reviser'].includes(r.role)));
   const pct = (a: number, b: number) => (b ? `${((100 * a) / b).toFixed(1)}%` : 'n/a');
-  const f = full.summary, b = base.summary;
-  const row = (label: string, fv: string, bv: string) => console.log(`  ${pad(label, 34)} ${pad(bv, 22)} ${fv}`);
-  console.log(`\n== Ablation — run ${runId}${glossaryRunId ? ` (glossary from ${glossaryRunId})` : ''}`);
-  console.log(`  ${pad('metric', 34)} ${pad('baseline (1 prompt)', 22)} full system`);
-  row('glossary terms checked', String(f.terms), String(b.terms));
-  row('term consistency (chosen / chosen+banned)', pct(f.renderingHits, f.renderingHits + f.bannedHits), pct(b.renderingHits, b.renderingHits + b.bannedHits));
-  row('chosen-rendering hits', String(f.renderingHits), String(b.renderingHits));
-  row('banned-variant hits (terms affected)', `${f.bannedHits} (${f.termsWithBanned})`, `${b.bannedHits} (${b.termsWithBanned})`);
-  row('mean distinct renderings per term', f.meanVariants.toFixed(2), b.meanVariants.toFixed(2));
-  row('paragraph term coverage', f.coverage ? `${f.coverage.covered}/${f.coverage.total} (${pct(f.coverage.covered, f.coverage.total)})` : 'n/a', 'n/a (no paragraph ids)');
-  row('leftover CJK runs', String(f.cjkLeaks), String(b.cjkLeaks));
-  row('rendering collisions / nested violations', `${f.collisions} / ${f.nestedViolations}`, '—');
-  row('translation cost (USD)', `$${trans.usd.toFixed(4)}`, `$${bl.usd.toFixed(4)}`);
-  row('translation cached-token rate', pct(trans.cached, trans.prompt), pct(bl.cached, bl.prompt));
-  row('translation tokens (prompt / completion)', `${trans.prompt} / ${trans.completion}`, `${bl.prompt} / ${bl.completion}`);
-  row('review + revise cost (USD, calls)', `$${(rev.usd + revise.usd).toFixed(4)} (${rev.calls} reviews, ${revise.calls} revisions)`, '—');
-  row('glossary build cost (USD, calls)', `$${gl.usd.toFixed(4)} (${gl.calls})`, '—');
-  row('total cost (USD)', `$${(trans.usd + rev.usd + revise.usd + gl.usd).toFixed(4)}`, `$${bl.usd.toFixed(4)}`);
-  const worst = (st: typeof full.stats) => st.filter((x) => x.bannedHits.length).sort((x, y) => y.bannedHits.reduce((a, c) => a + c.count, 0) - x.bannedHits.reduce((a, c) => a + c.count, 0)).slice(0, 6);
-  console.log(`\n  baseline banned variants: ${worst(base.stats).map((x) => `${x.source}: ${x.bannedHits.map((h) => `${h.variant}×${h.count}`).join(', ')}`).join(' | ') || 'none'}`);
-  console.log(`  full-system banned variants: ${worst(full.stats).map((x) => `${x.source}: ${x.bannedHits.map((h) => `${h.variant}×${h.count}`).join(', ')}`).join(' | ') || 'none'}`);
-  const uncovered = full.stats.filter((x) => x.coverage && x.coverage.covered < x.coverage.total).map((x) => `${x.source} ${x.coverage!.covered}/${x.coverage!.total}`);
-  if (uncovered.length) console.log(`  full-system paragraphs missing a rendering: ${uncovered.join(', ')}`);
+  const W = [38, 20, 22, 22];
+  const row = (label: string, a: string, b: string, c: string) => console.log(`  ${pad(label, W[0])} ${pad(a, W[1])} ${pad(b, W[2])} ${c}`);
+  const cons = (c: CheckSummary) => pct(c.renderingHits, c.renderingHits + c.bannedHits);
+  const bn = (c: CheckSummary) => `${c.bannedHits} (${c.termsWithBanned})`;
+  const cov = (c: CheckSummary) => (c.coverage ? `${c.coverage.covered}/${c.coverage.total} (${pct(c.coverage.covered, c.coverage.total)})` : 'n/a');
+  console.log(`\n== Ablation — run ${runId} (glossary ${glossaryPath.split('/').slice(-1)[0]} from ${gRun}, ${glossary.entries.length} terms)`);
+  row('metric', 'baseline (1 prompt)', 'full, before review', 'full, after review');
+  row('term consistency (chosen / chosen+banned)', cons(base.summary), cons(draft.summary), cons(final.summary));
+  row('chosen-rendering hits', String(base.summary.renderingHits), String(draft.summary.renderingHits), String(final.summary.renderingHits));
+  row('banned-variant hits (terms affected)', bn(base.summary), bn(draft.summary), bn(final.summary));
+  row('mean distinct renderings per term', base.summary.meanVariants.toFixed(2), draft.summary.meanVariants.toFixed(2), final.summary.meanVariants.toFixed(2));
+  row('paragraph term coverage', 'n/a (no paragraph ids)', cov(draft.summary), cov(final.summary));
+  row('leftover CJK runs', String(base.summary.cjkLeaks), String(draft.summary.cjkLeaks), String(final.summary.cjkLeaks));
+  row('translation cost (USD)', `$${bl.usd.toFixed(4)}`, `$${trans.usd.toFixed(4)}`, `+ $${(rev.usd + revise.usd).toFixed(4)} review/revise`);
+  row('translation cached-token rate', pct(bl.cached, bl.prompt), pct(trans.cached, trans.prompt), pct(trans.cached + revise.cached, trans.prompt + revise.prompt));
+  row('model calls', String(bl.calls), String(trans.calls), `${rev.calls} reviews, ${revise.calls} revisions`);
+  row('glossary build (USD, calls)', '—', `$${gl.usd.toFixed(4)} (${gl.calls})`, '');
+  row('total cost (USD)', `$${bl.usd.toFixed(4)}`, `$${(trans.usd + gl.usd).toFixed(4)}`, `$${(trans.usd + rev.usd + revise.usd + gl.usd).toFixed(4)}`);
+  const worst = (st: typeof base.stats) => st.filter((x) => x.bannedHits.length).sort((x, y) => y.bannedHits.reduce((a, c) => a + c.count, 0) - x.bannedHits.reduce((a, c) => a + c.count, 0)).slice(0, 6).map((x) => `${x.source}: ${x.bannedHits.map((h) => `${h.variant}×${h.count}`).join(', ')}`).join(' | ') || 'none';
+  console.log(`\n  banned variants — baseline: ${worst(base.stats)}`);
+  console.log(`  banned variants — before review: ${worst(draft.stats)}`);
+  console.log(`  banned variants — after review: ${worst(final.stats)}`);
+  console.log('  Note: consistency counts the chosen rendering vs KNOWN banned variants only; the after-review column is enforced by the loop (approval requires zero lint violations), so the before-review column and the baseline drift are the independent evidence.');
+
+  if (withRef) await evalRef(runId, gRun, glossary, chapterNames, dir);
+}
+
+/** Reference-based eval (answer key read here only). */
+async function evalRef(runId: string, gRun: string, glossaryUsed: Glossary, chapterNames: string[], dir: string) {
+  const ref = await referenceGlossary();
+  console.log(`\n== Reference eval (ref/english-reference.md; read by the eval only)`);
+  const versions = (await readdir(`${RUN_DATA_DIR}/${gRun}/glossary`)).map((f) => Number(f.match(/^glossary\.v(\d+)\.json$/)?.[1] ?? 0)).filter(Boolean).sort();
+  for (const v of versions) {
+    const g = JSON.parse(await readFile(`${RUN_DATA_DIR}/${gRun}/glossary/glossary.v${v}.json`, 'utf8')) as Glossary;
+    const a = glossaryAgreement(g.entries, ref);
+    const human = g.entries.filter((e) => e.decided_by === 'human').length;
+    console.log(`  glossary v${v}${v === glossaryUsed.version ? ' (used by this run)' : ''}: ${a.matches}/${a.compared} reference terms match${human ? ` — includes ${human} human resolution(s), made by the reference's author` : ''}; not in our glossary: ${a.notInGlossary.join(', ') || 'none'}`);
+    for (const m of a.mismatches) console.log(`    ✗ ${m.source}: ours "${m.ours}" (${m.decided_by}) vs reference ${m.reference.map((r) => `"${r}"`).join(' / ')}`);
+  }
+  const refEn = await referenceEnglish();
+  const refCounts = factCounts(refEn);
+  const baseText = (await loadBaselineChapters(dir, chapterNames)).map((c) => c.en).join('\n');
+  const fullText = (await loadFullChapters(dir, chapterNames, chapterNames.map(() => ''), false).catch(() => [] as { en: string }[])).map((c) => c.en).join('\n');
+  const fullTextSafe = fullText || (await Promise.all(chapterNames.map((n) => readFile(`${dir}/chapters/${n}/translation.en.txt`, 'utf8')))).join('\n');
+  const bc = factCounts(baseText);
+  const fc = factCounts(fullTextSafe);
+  console.log(`\n  Fact ledger (occurrences; total = count in the reference translation)`);
+  console.log(`  ${pad('fact', 20)} ${pad('reference', 10)} ${pad('baseline', 10)} full`);
+  let bOk = 0, fOk = 0, n = 0;
+  for (const f of Object.keys(refCounts)) {
+    const total = refCounts[f];
+    if (!total) {
+      console.log(`  ${pad(f, 20)} ${pad('0', 10)} ${pad(`${bc[f]} (n/a)`, 10)} ${fc[f]} (n/a: not stated in the reference)`);
+      continue;
+    }
+    n++;
+    if (bc[f] >= total) bOk++;
+    if (fc[f] >= total) fOk++;
+    console.log(`  ${pad(f, 20)} ${pad(String(total), 10)} ${pad(`${bc[f]}/${total}`, 10)} ${fc[f]}/${total}`);
+  }
+  console.log(`  facts fully present: baseline ${bOk}/${n}, full ${fOk}/${n}`);
 }
 
 /** Block until a detached translate run finishes, then print the chapter summary and the ablation. */
@@ -299,9 +351,13 @@ async function main() {
     return translateBook(args[0], args.slice(1), detach);
   }
   if (cmd === 'wait' && rest[0]) return waitRun(rest[0], rest[1]);
-  if (cmd === 'eval' && rest[0]) return evalRun(rest[0], rest[1]);
+  if (cmd === 'eval' && rest[0]) {
+    const withRef = rest.includes('--ref');
+    const args = rest.filter((a) => a !== '--ref');
+    return evalRun(args[0], args[1], withRef);
+  }
   if (cmd === 'glossary' && rest[0]) return glossary(rest[0], rest[1]);
-  console.error('usage:\n  cli start <chapter-file> [runId]\n  cli book <chapter-files...> [--stop-after group|glossary]\n  cli translate <glossaryRunId> <chapter-files...> [--detach]\n  cli wait <runId> [glossaryRunId]\n  cli structure <runId>\n  cli resolve <runId> <source> <rendering> [--unban <variant>] [--same-version] [--note <text>]\n  cli glossary <runId> [version]\n  cli eval <runId> [glossaryRunId]');
+  console.error('usage:\n  cli start <chapter-file> [runId]\n  cli book <chapter-files...> [--stop-after group|glossary]\n  cli translate <glossaryRunId> <chapter-files...> [--detach]\n  cli wait <runId> [glossaryRunId]\n  cli structure <runId>\n  cli resolve <runId> <source> <rendering> [--unban <variant>] [--same-version] [--note <text>]\n  cli glossary <runId> [version]\n  cli eval <runId> [glossaryRunId] [--ref]');
   process.exit(2);
 }
 

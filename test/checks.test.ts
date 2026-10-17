@@ -50,3 +50,14 @@ describe('termDistribution and friends', () => {
     expect(s.consistency).toBeCloseTo(3 / 5);
   });
 });
+
+describe('inflections', () => {
+  it('accepts inflected forms of lowercase single-word terms but not of proper nouns', () => {
+    const g = [{ source: '复核', rendering: 'review', alias_renderings: [], banned: ['audit'] }, { source: '沈澈', rendering: 'Shen Che', alias_renderings: [], banned: [] }];
+    const [rev, shen] = termDistribution(g, [{ name: 'x', en: 'accounts had to be manually reviewed; the audits were wrong; Shen Ches is not a name', paragraphs: [{ id: 'p1', zh: '复核', en: 'manually reviewed' }] }]);
+    expect(rev.renderingHits).toBe(1);
+    expect(rev.bannedHits).toEqual([{ variant: 'audit', count: 1 }]);
+    expect(rev.coverage).toEqual({ covered: 1, total: 1 });
+    expect(shen.renderingHits).toBe(0);
+  });
+});

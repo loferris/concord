@@ -52,8 +52,14 @@ export interface TermStat {
   coverage?: { covered: number; total: number };
 }
 
+/**
+ * Whole-word match. A lowercase single-word term (a common noun/verb such as "review") also matches its
+ * inflections (reviews, reviewed, reviewing); proper nouns and multi-word renderings must match exactly.
+ */
 function wordRe(needle: string): RegExp {
-  return new RegExp(`(?<![A-Za-z])${needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![A-Za-z])`, 'gi');
+  const esc = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const inflect = /^[a-z]+$/.test(needle) ? '(?:s|es|ed|ing|d)?' : '';
+  return new RegExp(`(?<![A-Za-z])${esc}${inflect}(?![A-Za-z])`, 'gi');
 }
 /**
  * Count each variant as a whole word, longest first, masking matches so a short variant ("Shen") is not

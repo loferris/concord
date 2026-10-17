@@ -86,24 +86,48 @@ See `docs/temporal.md` for how the workflows, retries, fallbacks and queues inte
     variants, per-paragraph term coverage, leftover CJK, rendering collisions, nested-term violations.
   - `cli eval <runId> [glossaryRunId]` prints the ablation table: baseline vs full system, with cost and
     cached-token rate computed from `usage.jsonl` and the Crusoe price list in `src/config.ts`.
-  - **Measured (3 chapters, glossary v2 with 13 terms, same DeepSeek writer for both; run
-    `20261017-210628-0xjf`, with the reviewer loop):**
+  - **Canonical run `20261017-213120-j30v`** (3 chapters, glossary **v3** from run `20261017-205002-c4sg`,
+    13 terms, same DeepSeek writer in every column):
 
-    | metric | baseline (1 prompt) | full system |
-    |---|---|---|
-    | term consistency (chosen / chosen+banned) | 72.6% | 100% |
-    | banned-variant hits (terms affected) | 31 (6) | 0 |
-    | paragraph term coverage | n/a | 109/109 |
-    | leftover CJK | 0 | 0 |
-    | translation cost | $0.0027 | $0.0050 |
-    | translation cached-token rate | 0% | 33.5% |
-    | review + revise (5 reviews, 2 revisions) | — | $0.027 |
-    | glossary build (51 calls) | — | $0.053 |
-    | total | $0.0027 | $0.085 |
+    | metric | baseline (1 prompt) | full, before review | full, after review |
+    |---|---|---|---|
+    | term consistency (chosen / chosen+banned) | 78.4% | 99.2% | 99.2% |
+    | banned-variant hits (terms affected) | 25 (6) | 1 (1) | 1 (1) |
+    | paragraph term coverage | n/a | 109/109 | 109/109 |
+    | leftover CJK | 0 | 0 | 0 |
+    | translation cost | $0.0023 | $0.0050 | + $0.0248 review/revise |
+    | cached-token rate on translation | 87.6%* | 39.9% | 60.5% |
+    | total cost | $0.0023 | $0.058 | $0.083 |
 
-    Baseline drift: 夜航 "Night Voyage"×10 vs glossary "Ye Hang", 复核 "review"×8, 灰名单 "gray list"×6,
-    师傅 "master/mentor". Before review the full system had 2 lint violations and 2 banned hits; after one
-    revision round each for chapters 1 and 2 it had none. Chapter 3 was approved on the first review.
+    Baseline drift: 夜航 "Night Voyage"×10 vs glossary "Ye Hang", 灰名单 "gray list"×6, 师傅 "master"/"mentor"×4,
+    沈澈 → bare "Shen"×3. The one remaining full-system hit is "mentor" used for 师父 in narration, which the
+    proposers had banned for the homophone 师傅: a limitation of the banned-variant metric, not a term error.
+    \* The baseline prompt is byte-identical across runs, so it hits the cache built by earlier runs.
+
+    **How to read the columns.** Term consistency counts the chosen rendering against *known banned variants*
+    only. The after-review column is enforced by the loop (approval requires zero lint violations), so the
+    before-review column and the baseline drift are the independent evidence. Chapter 1 of this run ended
+    "flagged" because the lint demanded the exact word "review" where the text says "manually reviewed"; the
+    checker now accepts inflections of lowercase single-word terms, and the table above is the recomputed eval.
+
+  - **Reference eval** (`cli eval <run> --ref`; `ref/english-reference.md` is read by `src/eval.ts` only, and a
+    test asserts no prompt, activity or workflow module mentions it):
+    - Glossary agreement with the reference table (normalized rendering equals any "/" alternate): v1 10/16,
+      v2 10/16, **v3 11/16**. v3 includes three human resolutions (复核 review, 复核组 Review Team, 观澜
+      Guanlan with "Guanlan Data" unbanned) made by the reference's author, so v2 is the unaided score.
+      Remaining mismatches: 沈哥 "Brother Shen" vs "Shen/boss", 阿澈 "Ah Che" vs "Che", 小鹿 "Xiao Lu" vs
+      "Lu/kid", 夜航 "Ye Hang" vs "Night Flight", 灰名单 "graylist" vs "grey list". Six reference terms were not
+      extracted (黑名单, 人工先验, 风控负责人, 陆家嘴, 浦东机场, the refrain), four of them because they occur once
+      and the code filter drops single-occurrence terms.
+    - Fact ledger (regex counts; total = occurrences in the reference): 3,412 accounts 3/3, 1–2 a.m. 2/2,
+      72 hours 1/1, 200 million 1/1, nine years 1/1, three years 4/4, two months 1/1, ~300 1/1, 8 a.m. 3/3,
+      for both baseline and full system (9/9 facts); "11 p.m." is not stated in the reference.
+- [x] **Milestone 4a: kill -9 / resume.** `scripts/kill-resume.sh <glossaryRunId>` (live demo): starts a run,
+  kills every worker process mid-model-call, shows Temporal marking the activity "Heartbeat timeout" and
+  scheduling attempt 2 with no worker alive, restarts the worker, and the run completes from there.
+- [x] **Human resolutions.** `cli resolve <runId> <source> <rendering> [--unban v] [--same-version]` writes
+  the next glossary version with `decided_by: human` and a `resolved_from` note citing the `needs_human` flag
+  or the reviewer dispute it answers, then re-runs the nested-term and collision checks.
 - [x] **Milestone 3b: reviewer loop.** `ChapterWorkflow` = translate → code lint + GLM review (thinking on)
   → revise (≤3) → approved or flagged. Approval needs the reviewer's verdict *and* zero lint violations.
   Real run: ch1 approved after 2 rounds (2 major + 7 minor → 0 major), ch2 after 2, ch3 after 1. The reviewer
