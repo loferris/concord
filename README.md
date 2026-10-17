@@ -84,6 +84,22 @@ readable `translation.en.txt` and `translate.usage.json`. Workflow history only 
     variants, per-paragraph term coverage, leftover CJK, rendering collisions, nested-term violations.
   - `cli eval <runId> [glossaryRunId]` prints the ablation table: baseline vs full system, with cost and
     cached-token rate computed from `usage.jsonl` and the Crusoe price list in `src/config.ts`.
+  - **Measured (3 chapters, glossary v2 with 13 terms, same DeepSeek writer for both):**
+
+    | metric | baseline (1 prompt) | full system |
+    |---|---|---|
+    | term consistency (chosen / chosen+banned) | 73.0% | 93.7% |
+    | banned-variant hits (terms affected) | 31 (6) | 8 (2) |
+    | paragraph term coverage | n/a | 106/113 (93.8%) |
+    | leftover CJK | 0 | 0 |
+    | translation cost | $0.0027 | $0.0053 |
+    | translation cached-token rate | 0% | 16.7% (ch.3 hit 1024 of 2249) |
+    | glossary build (51 calls) | — | $0.053 |
+
+    Baseline drift: 夜航 as "Night Voyage"×10 vs glossary "Ye Hang", 灰名单 "gray list"×6, 师傅 "master/mentor".
+    Remaining full-system misses: 复核 rendered "audit"×7, because the glossary itself froze 复核组 as
+    "Audit Team" while 复核 → "verification" (the nested-term check flagged it; the terminologist could not
+    reconcile it and the entry is `needs_human`).
 - [ ] Milestone 3b: reviewer (GLM-5.3-Flash) → revise loop.
 - [ ] Milestone 4: kill -9 / resume script; eval against `ref/english-reference.md`.
 - [ ] Milestone 3: all chapters in parallel + checks report.
