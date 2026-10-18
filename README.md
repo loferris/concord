@@ -6,6 +6,18 @@ Built in one day at the Crusoe × Cerebral Valley Recursive Agents Hackathon (Oc
 **Shared Brain**. All code in this repository was written on Oct 17, 2026 with coding agents (Claude Code); the
 first commit is 11:00 PDT.
 
+## The problem
+
+Literary translation is among the hardest cases for machine translation, and one that still needs human
+oversight: names, voices and invented terms have to stay consistent across an entire book. Serialized fiction
+raises the difficulty. Web novels publish a chapter a day for years, so every term is decided before the story
+explains it, must hold for thousands of chapters, and sometimes has to be reopened.
+
+That is the same shape as a long-running agent system that must commit to decisions early and revise them later
+with a record of what changed. Chinese web fiction adds its own technical traps: no word boundaries (terms must
+be discovered, not looked up), dense aliases and address forms, and same-sound words like 师傅 (driver) and 师父
+(mentor) that romanization and string similarity conflate.
+
 **Nemotron decides. DeepSeek writes. GLM checks.** Every glossary decision (grouping, policies, three blind
 proposals, critique, final ruling) is made by Nemotron; DeepSeek handles the Chinese text (tagging, translation);
 GLM, a third model family, reviews so the writer never grades itself. Code verifies every model output and
