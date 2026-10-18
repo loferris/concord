@@ -1,87 +1,89 @@
 # concord: agent team that agrees on a glossary, then translates a novel consistently
 
-Built today (Oct 17, 2026, 10:45–5:00) at the Recursive Agents Hackathon. Problem statement: **Shared Brain**.
-All code in this repo must be written today. Commit small and often with clear messages.
+Built on Oct 17, 2026 at the Crusoe × Cerebral Valley Recursive Agents Hackathon (problem statement **Shared
+Brain**) with Claude Code. The README is the public face (results, FAQ, how to run); this file is the working
+contract for agents editing the code. Commit small and often with clear messages.
 
 ## Goal
-Translate a Chinese novel (data/zh/*.txt, 3 chapters) into English with an agent team whose shared
-memory (a glossary) stays current, efficient and conflict-free, and prove it with measured consistency gains.
+Translate a Chinese novel (`data/zh/*.txt`, 3 chapters) into English with an agent team whose shared memory
+(a versioned glossary) stays current, efficient and conflict-free, and prove it with measured gains over a
+one-prompt baseline. Canonical runs and their outputs are committed under `results/`.
 
 ## Stack (do not change without asking)
-- TypeScript, Node 20+. Temporal TS SDK (@temporalio/*). OpenAI SDK pointed at Crusoe.
-- Zod for every agent's output; send it as `response_format` via `zodResponseFormat`.
-- Temporal dev server runs separately: `temporal server start-dev --db-filename .tmp/temporal.db`.
+- TypeScript, Node 20+. Temporal TS SDK (@temporalio/*). OpenAI SDK pointed at Crusoe. Zod on every agent
+  output, sent as `response_format` via `zodResponseFormat`. Tests: vitest (`bun run test`), `bun run typecheck`.
+- Temporal dev server runs separately: `bun run temporal`. Run the worker through tsx/Node (`bun run worker`);
+  Temporal's worker needs Node native modules, never the Bun runtime.
+- Never run a `FAKE_LLM=1` worker and a real worker at the same time: they share task queues and Temporal
+  will hand real activities to the fake one.
 
-## Crusoe (read docs/crusoe-cv-recursive-agents-hackathon-skill.md; agent prompts in docs/prompts.md)
-- Base URL: https://api.inference.crusoecloud.com/v1, key in env CRUSOE_API_KEY. Never print or commit it.
-- Exact model IDs (confirmed against /v1/models on Oct 17):
-  - translator (output): `deepseek-ai/DeepSeek-V4.1-Flash` — thinking off via
-    `chat_template_kwargs: { thinking: false }`; cached input $0.007/1M; reports `cached_tokens` and
-    `created_cache_tokens`.
-  - terminologist, reviewer, proposers (coordination): `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B`
-    — thinking toggle is `chat_template_kwargs: { enable_thinking: true|false }`.
-  - extraction: `nvidia/Nemotron-3.5-Lightning-30B-A3B` — 1M context, reads the whole book in one call;
-    a third model means a third per-model rate limit.
-  - reviewer: `zai-org/GLM-5.3-Flash` — thinking ON (bench: off missed 2/3 planted defects). Third family.
-  - tagger: `deepseek-ai/DeepSeek-V4.1-Flash` (fallback Super from attempt 3). Bench: DeepSeek 6/6 exact,
-    Super 3/6 with whitespace loops. Nemotron still makes every glossary decision.
-  - Per-agent thinking on/off is the table in docs/prompts.md. Nemotron Super + thinking + json_schema does
-    not terminate on Crusoe (measured); keep Nemotron thinking off.
-  - `src/llm.ts#thinkingKwargs` picks the right switch per model family.
-- max_tokens ≥ 1024; treat finish_reason "length" or empty content as a retryable error.
-- Nemotron 3.5 Lightning returns `prompt_tokens_details: null` (no cache reporting); we record that as null.
-- Rate limits are per model per minute. Concurrency is set per task queue, not ad hoc.
-- Measured Oct 17: Crusoe's `429 max_requests_limit (orchestrator)` is a concurrency cap per model, not RPM:
-  Lightning rejects a 2nd in-flight request; Super at 3 concurrent produced 52 429s in one glossary run.
-  Queues run 2 concurrent (`src/worker.ts`); Lightning calls are sequential; 429s wait 15s.
-- OpenAI client: maxRetries 0 (Temporal owns retries). 429/5xx/timeouts/schema failures → retry.
-  400/401/403/404 → `ApplicationFailure.nonRetryable`.
-- Put stable content first in every prompt (brief + frozen glossary, sorted), chapter text last,
-  for prefix caching. Log usage.prompt_tokens_details.cached_tokens.
-- Measured Oct 17: cache lands in 512-token blocks and a hit is not visible until a few seconds after the
-  write. So: the shared prefix (brief + policies + glossary) must be comfortably > 512 tokens and
-  byte-identical across chapters, and BookWorkflow translates ONE chapter first to warm the cache, then
-  fans out the rest.
-- Run the worker through tsx/Node (`bun run worker` does this). Temporal's worker needs Node native
-  modules; do not run it on the Bun runtime.
-- Use a fixed `seed` for eval runs.
+## Models on Crusoe (reference: docs/crusoe-cv-recursive-agents-hackathon-skill.md; prompts: docs/prompts.md)
+- Base URL https://api.inference.crusoecloud.com/v1, key in env `CRUSOE_API_KEY` (`.env`, single quotes).
+  Never print or commit it. Unset → deterministic fake model (`src/fake.ts`), so everything runs offline.
+- Division of labor (`src/config.ts#MODELS`; per-agent thinking table in docs/prompts.md):
+  - **Nemotron decides**: grouper, policies, 3 proposers, critic, terminologist on
+    `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B`, thinking off; extraction on `nvidia/Nemotron-3.5-Lightning-30B-A3B`.
+  - **DeepSeek writes**: tagger, translator, reviser, baseline on `deepseek-ai/DeepSeek-V4.1-Flash`, thinking
+    off (`chat_template_kwargs: { thinking: false }`). Tagger fallback: Super from attempt 3.
+  - **GLM checks**: reviewer on `zai-org/GLM-5.3-Flash`, thinking ON (off missed 2/3 planted defects).
+  - Nemotron thinking switch is `enable_thinking`; `src/llm.ts#thinkingKwargs` picks the switch per family.
+- Measured on Oct 17 (keep these in mind, see docs/temporal.md):
+  - Nemotron Super with `json_schema` output sometimes loops on whitespace to the token cap; with thinking on
+    it never terminated. Retries use a perturbed seed (`attemptSeed`); decision calls fall back to Lightning
+    from attempt 4 (`modelForAttempt`); a single failed proposer does not fail a debate.
+  - Crusoe `429 max_requests_limit (orchestrator)` is a per-model in-flight cap, not RPM. Queues run 2
+    concurrent; Lightning calls are sequential with pass A persisted and a 20s pause; 429s wait 15s.
+  - Prefix cache lands in 512-token blocks and is not visible for a few seconds: keep the shared prefix
+    (brief + policies + full sorted glossary) byte-identical across chapters and translate chapter 1 alone first.
+  - Lightning reports no cache fields (`cached_tokens: null`); DeepSeek reports `created_cache_tokens`.
+- OpenAI client: `maxRetries 0` (Temporal owns retries). 429/5xx/timeouts/truncation/empty/bad JSON/schema
+  failures → retryable; 400/401/403/404 → `ApplicationFailure.nonRetryable`. Fixed `seed` on first attempts.
 
 ## Architecture
-- `src/workflows.ts`: deterministic only, no I/O, no OpenAI import.
-  - `BookWorkflow`: extract → debate → freeze glossary → first chapter alone (warms the prefix cache) →
-    remaining chapters in parallel → post-pass checks.
-  - `DebateWorkflow` (child, one per contested term).
-  - `ChapterWorkflow`: translate → term lint → review → revise (≤3) → approve or flag.
-- `src/activities/`: every model call and every file read/write. All long activities heartbeat in the
-  background; workflows set heartbeatTimeout 15s.
-- **Text never goes into workflow history.** Activities write to `run-data/<runId>/...` atomically
-  (tmp + rename) and pass paths.
-- **Paragraph IDs:** split each chapter into paragraphs `p001…`; the translator returns
-  `{id, text}` per paragraph; every check works per paragraph.
-- Task queues: `workflows`, `fast` (translator), `smart` (Super roles).
-- `src/checks.ts`: pure functions, unit-tested: term rendering distribution, banned variants,
-  leftover CJK (regex), missed-term mining. Same functions power the post-pass and the eval.
-- `src/fake.ts`: deterministic fake model used when CRUSOE_API_KEY is unset, so everything runs offline.
+- `src/workflows.ts` is deterministic: no I/O, no OpenAI import, no `Math.random`.
+  - `BookWorkflow` (batch): tag chapters in parallel → extract (two passes, capture–recapture) → group →
+    policies → one `DebateWorkflow` child per entity → glossary.v1 → nested-term re-decisions → glossary.v2 →
+    `ChapterWorkflow` for chapter 1, then the rest in parallel, plus baselines → checks.
+  - `DebateWorkflow`: three blind proposers (own seeds) → agreement (raw, or after article/quote/hyphen
+    normalization) or critic → terminologist.
+  - `ChapterWorkflow`: translate → code lint + GLM review → revise (≤3) → approved or flagged. Approval needs
+    the verdict AND zero lint violations.
+  - `TranslateBookWorkflow`: reuse a finished glossary run (`cli translate`, `--into` to write into a run).
+  - `AddChapterWorkflow` (incremental): tag → extract this chapter → skip known sources/aliases → one grouper
+    call per new item against existing entities → debate only new entities with the frozen glossary as
+    precedent → glossary.v{N+1} + `changelog.json` → translate + review. Frozen renderings never change
+    silently; only `cli resolve` (human) writes a new version, with `resolved_from`.
+- `src/activities/`: every model call and every file read/write. Long activities heartbeat every 5s
+  (`withHeartbeat`); workflows set heartbeatTimeout 15s. Every call appends to `run-data/<run>/usage.jsonl`.
+- **Text never enters workflow history.** Activities write `run-data/<runId>/...` atomically (tmp + rename,
+  sanitized path segments) and return paths and counts.
+- **Paragraph IDs** `p001…` round-trip through the translator; tagger output must reproduce the source
+  exactly (`src/align.ts` snaps dropped quotes; altered text fails the attempt).
+- Task queues: `workflows`; `fast` (DeepSeek + Lightning); `smart` (Super, GLM, file-only activities).
+- Pure, unit-tested code around every model output: `src/extract.ts` (boundary-entropy candidates,
+  `verifyExtraction`, time/number filter), `src/align.ts`, `src/normalize.ts`, `src/checks.ts` (term
+  distribution with longest-first masking, chapter-scoped banned variants, ambiguous-variant exclusion,
+  paragraph coverage, leftover CJK, collisions, nested terms, cross-chapter drift, per-paragraph lint).
+- Eval-only code: `src/eval.ts`, `src/report.ts`. `ref/english-reference.md` is the answer key: never in any
+  prompt; `test/no-ref-leak.test.ts` enforces that nothing under prompts/activities/workflows mentions it.
+- CLI (`src/cli.ts`): `start`, `book [--stop-after group|glossary]`, `translate`, `wait`, `add-chapter`,
+  `growth`, `structure`, `glossary`, `resolve`, `eval [--ref] [--hits] [--glossary-version N]`, `report`.
+  Demos: `scripts/kill-resume.sh`, `scripts/incremental-demo.sh`.
 
 ## Glossary design
-- Candidates: boundary-entropy pass (pure code) + LLM extraction; merge nested terms (金丹/金丹期).
-- Three blind proposers (fidelity / readability / genre conventions) render each term independently.
-  Agreement → frozen. Disagreement → one critique round → terminologist decides and writes a rationale.
-- Entries: source, rendering, aliases, banned variants, rationale. Book-wide policies (names, titles,
-  honorifics) are decided first.
-- Reviewer judges quality only; it never votes on terms.
-
-## Data rules
-- `ref/english-reference.md` is the answer key. **Never put it in any agent prompt.** Only `eval` reads it.
-
-## Milestones (do them in order; stop and show me the output after each)
-1. One chapter end to end through Temporal on Crusoe, paragraph IDs preserved. (target 12:00)
-2. Extract + debate + frozen glossary written to run-data. (1:30)
-3. All chapters in parallel against the glossary + checks report. (2:45)
-4. `eval`: baseline (one prompt per chapter, no glossary) vs full system: term consistency, banned
-   variants, leftover CJK, cost and cached-token rate. Plus a kill -9 / resume script. (3:45)
+- Candidates: boundary-entropy pass (pure code) + LLM extraction, verified verbatim against the text.
+- Three blind proposers (fidelity / readability / genre) → agreement freezes; otherwise critique → terminologist
+  with a rationale. Entries: source, type, rendering, aliases, alias renderings, banned variants, context
+  rules, decided_by (agreement | terminologist | human), rationale, needs_human, code_notes.
+- Code guards on the glossary itself: no CJK, markdown or diacritics in renderings; banned never contains the
+  chosen rendering; two sources never share a rendering (flagged needs_human); nested-term rule (A ⊃ B ⇒
+  A's rendering contains B's), re-decided under constraint.
+- Book-wide policies first. Reviewer judges quality only and may dispute a term (goes to a human, not the
+  translator).
 
 ## Working style
-- Small steps. Run it after every change and show me the real output; don't claim it works untested.
-- Ask before adding a dependency or changing the architecture.
-- Keep the README "Built today" section updated as features land.
+- Small steps. Run it after every change and show the real output; never claim it works untested.
+- Ask before adding a dependency or changing the architecture or the prompts (prompts are verbatim from
+  docs/prompts.md).
+- When eval logic changes, regenerate `results/*/eval.txt` and `report.html` and update the README tables.
+- Keep README numbers tied to the committed runs in `results/`.
